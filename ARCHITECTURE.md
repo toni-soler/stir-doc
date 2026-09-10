@@ -16,4 +16,4 @@ Decisions: Java 21, Boot 3.4.4, PostgreSQL 17, React 18 JavaScript, esbuild exte
 
 Ownership is the authenticated IDAX user in the selected tenant. Administrators cannot edit another owner's listing through owner endpoints. Tenant never implies an osTRIS community. Future MarketplaceCommunityBinding and ParticipantBinding require explicit administration and verified identifiers.
 
-Shell 0.3 hardcodes two module hosts and does not export its CRUD component. A pinned-source adapter in stir-main generalizes mounting and exposes public CRUD. Existing source repositories remain unchanged.
+Shell 0.3 hardcodes two module hosts and does not export its CRUD component. A pinned-source adapter in stir-main generalizes mounting and exposes active tenant context. The platform correction belongs to an independent idax-shell branch; stir-main applies its reviewed public-source patch temporarily.

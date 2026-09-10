@@ -1,5 +1,10 @@
 # Domain model
 
+IDAX tenant != Marketplace. IDAX tenant != osTRIS Community.
+Marketplace != osTRIS Community. IDAX user != osTRIS Participant.
+
+0.1 uses one tenant as one marketplace scope only as an implementation simplification, not a domain invariant. A future Marketplace identifier/configuration may distinguish multiple marketplaces within a tenant. Economic associations always require explicit bindings; no equality of these concepts is implied.
+
 | Concept | Responsibility / status |
 |---|---|
 | Marketplace | Instance/tenant commercial scope; future explicit settings, not community identity |

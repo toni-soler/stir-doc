@@ -15,9 +15,11 @@ Marketplace != osTRIS Community. IDAX user != osTRIS Participant.
 | Resource | Future reusable item/skill description; no speculative inventory table now |
 | Offer | 0.2: a proposal against a Listing (not ListingType.OFFER) - message, optional quantity/unit, optional proposed amount/unit reference, optional terms, status, sequence |
 | Negotiation | 0.2: access-controlled Offer thread between a Listing's owner and one initiator; OPEN/ACCEPTED/DECLINED |
-| Agreement | 0.2: accepted commercial terms once a Negotiation is accepted - not economic completion; economicPhase starts and currently stays AWAITING_ECONOMIC_EXECUTION |
-| AgreementSnapshot | 0.2: immutable, versioned, canonical (sorted-key compact JSON) record of the accepted terms plus a private random nonce, SHA-256 digest over the exact canonical bytes |
-| Trade | Future fulfillment linked to osTRIS transaction/receipt |
+| Agreement | 0.2: accepted commercial terms once a Negotiation is accepted - not economic completion. 0.3: economicPhase is NOT_APPLICABLE (no proposed amount - free/non-monetary), or AWAITING_ECONOMIC_EXECUTION -> AWAITING_SIGNATURES -> COMMITTED/REJECTED once a Trade is activated. payerUserId/payeeUserId are derived once, at accept time, from Listing.direction (OFFER: initiator pays owner; WANTED: owner pays initiator) - never re-inferred later |
+| AgreementSnapshot | 0.2: immutable, versioned, canonical record of the accepted terms plus a private random nonce, SHA-256 digest over the exact canonical bytes. 0.3: canonicalization is RFC 8785 JCS (`STIR-AGREEMENT-JCS-1`, via `io.github.erdtman:java-json-canonicalization` / `canonicalize` on JS - the same library osTRIS's own reference implementation uses), schemaVersion 2, adding `format` and nullable `payerUserId`/`payeeUserId` fields |
+| MarketplaceEconomicBinding | 0.3: explicit, one-per-tenant tenant -> osTRIS community/unit binding; set once via an admin-style bootstrap action, never inferred |
+| ParticipantEconomicBinding | 0.3: explicit user -> osTRIS participant/account/credential/controller binding, created by activating economic exchange with a client-generated Ed25519 public key |
+| Trade | 0.3: STIR's own link between one Agreement and one osTRIS EXCHANGE transaction - transactionId, payer/payee account, amount (minor units), contractualMetadataDigest (== the AgreementSnapshot digest), executionState (AWAITING_SIGNATURES/COMMITTED/REJECTED), committedSequence/protocolDigest/committedAt once committed |
 | Attachment | Future authorized object reference and scan status; no upload now |
 | Location | Optional coarse text; precise address reserved for fulfillment |
 
@@ -35,4 +37,8 @@ Offers are append-only and never edited: a counter-offer creates a new Offer row
 
 Accepting freezes the head Offer's status to ACCEPTED, closes the Negotiation (ACCEPTED), and creates exactly one Agreement (unique per Negotiation) plus its AgreementSnapshot in the same transaction. The Agreement's economicPhase is AWAITING_ECONOMIC_EXECUTION: an Agreement is a commercial commitment between STIR parties, never itself an osTRIS economic completion (see TRANSACTION_LIFECYCLE.md/OSTRIS_INTEGRATION.md).
 
-Deferred: multiple marketplaces per tenant, category administration, geography, quantity units, moderation, attachments/retention, participant verification, Trade/osTRIS EXCHANGE integration.
+Deferred: multiple marketplaces per tenant, category administration, geography, quantity units, moderation, attachments/retention, participant verification.
+
+## Economic exchange lifecycle (0.3)
+
+Activating a Trade (`POST .../trade/activate`, either party, once) derives entries from STIR's own Agreement/Offer data (never a client-supplied amount), creates the osTRIS EXCHANGE proposal server-to-server, and moves Agreement.economicPhase to AWAITING_SIGNATURES. Each party fetches the exact canonical bytes to sign from osTRIS (`GET .../trade/signing-payload`) and submits their own client-produced Ed25519 signature (`POST .../trade/authorizations`) - STIR only relays it, never signs on a user's behalf. Commit (`POST .../trade/commit`) calls osTRIS directly and observes the result: COMMITTED on success (committedSequence/protocolDigest/committedAt recorded, Agreement -> COMMITTED), or REJECTED on a directly-observed osTRIS failure (e.g. a credit-floor breach) - recorded in its own transaction so it survives even though the failing request itself rolls back, and NEVER fabricated from a client's unverified claim. `sync()` independently re-reads osTRIS's own transaction status for reconciliation. Activate/commit are idempotent (repeating them never creates a second Trade or a second osTRIS journal entry). Balances shown to a participant are always live-queried from osTRIS, never cached as STIR's own source of truth.

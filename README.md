@@ -8,4 +8,4 @@ STIR uses public IDAX Open Core 0.3 runtime artifacts and the public IDAX Shell.
 
 Start with [Architecture](ARCHITECTURE.md), [Domain](DOMAIN_MODEL.md), [Integration](OSTRIS_INTEGRATION.md), [Public boundary](PUBLIC_SOFTWARE_BOUNDARY.md) and [Readiness](IMPLEMENTATION_READINESS.md). Run the local instance from sibling `stir-main`.
 
-Version: `0.1.0-SNAPSHOT`. No production deployment or economic exchange is included.
+Version: `0.2.0-SNAPSHOT`. No production deployment or economic exchange is included.

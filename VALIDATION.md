@@ -42,3 +42,29 @@ The public-source Shell adapter remains explicitly temporary. Its fix belongs to
 ## Visual observation
 
 The browser flow is functional and translated. Screenshots also show inherited Shell styling needing later visual cleanup: a missing Shell logo asset and low contrast in the module introduction/pagination on the light Shell background. No UI redesign was performed in this validation-only pass. These are cosmetic limitations, not failures of authentication, tenant isolation or the Listing lifecycle.
+
+## 0.2 Marketplace MVP
+
+Validation performed 2026-09-11. Same conventions as above: commands run from the named repository, no secrets included, PASS denotes the development foundation.
+
+| Check | Command / mechanism | Status | Observed result |
+|---|---|---|---|
+| Backend | stir-backend: `mvn -s .mvn/public-settings.xml clean verify` (equivalent: `mvn -o test`) | PASS | 34 tests, 0 failures/errors/skipped: 7 Listing service, 1 Listing RLS/migration (now covers all five 0.2 tables), 1 personal-endpoint auth, 16 Negotiation service (state machine, party auth, concurrency), 5 CanonicalJson test vectors, 3 ParticipantProfile service. |
+| Frontend clean install | stir-frontend: `npm ci` | PASS | Clean install after the 0.1→0.2 lockfile version bump. |
+| Frontend tests | `npm test` | PASS | 8 tests, 0 failures (4 new: offer payload normalization, participant/negotiation/agreement API paths). |
+| Translations | `npm run i18n:validate` | PASS | 12 locales, 97 keys each (46 new keys for profile/offer/negotiation/agreement screens). |
+| Frontend build | `npm run build` | PASS | esbuild extension bundle, now including profile/listing/negotiation/agreement screens. |
+| Workspace | root: `python scripts/validate-workspace.py` | PASS | Unchanged: five independent Git roots, no child files/gitlinks. |
+| Public boundary | `python scripts/audit-public.py` | PASS | 137 owned text files across five repositories; 2 explanatory matches reviewed; no private dependency, path, key or STIR remote. |
+| Docker no-cache build | stir-main: `docker compose down -v`; `docker compose build --no-cache` | PASS | All composed images (Shell, STIR, Ledger, osTRIS and their frontends) rebuilt from source with no cache; stir-backend Maven deps and stir-frontend npm deps resolved from public repositories only; stir-frontend's own `npm run i18n:validate && npm run build` ran inside the image build and passed. |
+| Empty-volume migrations | `docker compose up -d`; migration job logs | PASS | Empty volume, repeated on the no-cache images: Core (unchanged), Shell 1, **STIR 2** (V1 listings + V2 marketplace), Ledger 3, osTRIS 4. Migration and role-provision jobs exited 0. |
+| Health checks | `docker compose ps` | PASS | PostgreSQL, Shell, STIR, Ledger, osTRIS and proxy healthy; all three UI containers running. |
+| Marketplace E2E | `python scripts/marketplace_e2e.py` | PASS | Ana and Pedro (Tenant A) set up ParticipantProfiles; Ana publishes an OFFER listing; Pedro discovers it (response includes Ana's displayName); Pedro proposes; Ana counters (history preserved, previous offer SUPERSEDED); Pedro accepts; Agreement + AgreementSnapshot created (economicPhase=AWAITING_ECONOMIC_EXECUTION); both parties read back an identical 64-hex-char digest. Carlos (same tenant, uninvolved) reads the public Listing but gets 404 on the negotiation and agreement and cannot decline. A Tenant B participant is denied on all three (400/403/404 depending on where the tenant check lands, matching the existing Listing precedent for foreign-tenant paths). Re-run after the no-cache rebuild with the same result. |
+| Marketplace browser E2E | `scripts/marketplace_browser_smoke.py` (two independent Playwright browser contexts = two real sessions) | PASS | Ana logs in, sets her profile, publishes "20kg tomatoes"; Pedro logs in (separate context/session), finds it via search, opens the detail page, submits an offer; Ana opens My negotiations, sees Pedro's offer, submits a counteroffer; Pedro reloads, sees the counteroffer, accepts; lands on a real rendered Agreement page showing the AWAITING_ECONOMIC_EXECUTION phase. No JavaScript page errors in either session. Screenshot: `.local/browser-agreement.png`. |
+| Browser (existing) | `python scripts/browser-smoke.py` | PASS | Unaffected by 0.2: login, tenant selection, Shell module load, WANTED create/list/filter/edit/close, CLOSED query, navigation and deep-link reload; no JavaScript page errors. |
+| A/B HTTP (existing) | `python scripts/multitenant.py` | PASS | Unaffected by 0.2; runtime SQL also confirms forced RLS policies now exist and are correctly tenant-scoped on `negotiation`, `offer`, `agreement`, `agreement_snapshot` and `participant_profile`, not just `listing`. |
+| Listing HTTP (existing) | `python scripts/smoke.py` | PASS | Unaffected by 0.2. |
+| osTRIS gap re-check | Inspected `vendor/ostris/backend/src/main/java/.../api/*Controller.java` | Confirmed unchanged | Only `TransactionController` (POST proposals/authorizations/governance-authorizations/commit) and `IdentityContinuityController` exist; still no discovery/read, participant/community/unit lookup, or GET status endpoint. OSTRIS_INTEGRATION.md's documented gaps stand; 0.2 does not work around them (see "osTRIS blockers for next MVP" in the delivery summary). |
+| Economic transaction | No command: deliberately unimplemented | NOT RUN | Same as 0.1: outside this MVP: `Agreement.economicPhase` stays `AWAITING_ECONOMIC_EXECUTION`. |
+
+Runtime proof semantics, fixture provisioning and the "earlier failures resolved" history above are unchanged for 0.2 - `marketplace_e2e.py`/`marketplace_browser_smoke.py` reuse the exact same isolated fixture pattern (`idax_core.tenant_create` + public Shell user/role/permission HTTP endpoints, never a direct Core table write) as `multitenant.py`.

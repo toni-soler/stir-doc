@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0-rc1
+
+Public Beta hardening: no new product functionality on top of 0.4 - the same software made
+production-deployable. A production Docker Compose overlay (`compose.production.yml` +
+`Caddyfile.production`) adds automatic HTTPS, real internet-facing ports, parameterized
+bootstrap-admin/site identity (no more `admin@stir.test`), and disables Swagger/OpenAPI docs on
+all four Spring services (a real, previously-unnoticed gap: all of them `permitAll()`'d
+`/swagger-ui/**`/`/v3/api-docs/**` publicly). `backup.py` gained retention pruning and dev/prod
+awareness; `restore.py` requires typing the compose project name in production (not just `--yes`)
+so a copy-pasted dev command can never wipe live data; `deploy.py` and `status.py` are new. Fixed
+the ACTUAL root cause of the client-side permission-visibility gap 0.4 had worked around:
+IDAX Shell's `Session.user` never carried a `permissions` field at all - committed as a public
+Shell patch (`patches/idax-shell-0.5-session-permissions.patch`), not a second STIR-side
+workaround. Also turned `vendor/ostris`'s accumulated, previously-unreproducible file-copy drift
+into a proper patch, so a genuinely fresh clone now reproduces the real running stack. See
+VALIDATION.md's 0.5 section for the full clean-build gate, security review and E2E evidence, and
+the delivery report for exactly what remains blocked on external infrastructure.
+
 ## 0.4.0-SNAPSHOT
 
 Public Pilot MVP: STIR becomes usable end to end by a non-technical person - a Home dashboard, real photo/avatar uploads to S3-compatible object storage (MinIO locally, any real provider in production, never Postgres), persistent in-app notifications for 8 negotiation/trade events, a multi-device credential lifecycle built entirely on osTRIS's existing credential/controller_credential_binding contract (add/revoke a device, self-lockout guarded, no AccountControlPolicy change), minimal content moderation (report/hide/dismiss, entirely separate from osTRIS Findings/PENALTY/RESTITUTION), fully configuration-driven instance branding, plain-language economic error messages, single-node rate limiting on especially sensitive endpoints, request-correlated logging, and a production-like Docker path (prepared, not executed against a real destination). A real, actually-executed local backup/restore round trip (Postgres + object storage, both Docker volumes destroyed and recreated from nothing) is documented in VALIDATION.md, which also records the most significant bug this phase found and fixed: `TradeService.authorize()` was relaying the FIRST-activation-time credential id to osTRIS's signature verification regardless of which device actually signed, making a second device's otherwise-correct signature always fail - the entire multi-device feature was non-functional for its actual purpose until that fix. ARCHITECTURE, DOMAIN_MODEL, PRIVACY_MODEL and README updated for the new object-storage dependency, the four new `stir` schema tables, and the device/moderation/notification domains.

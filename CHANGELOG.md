@@ -1,5 +1,9 @@
 # Changelog
 
+## Upstream 0.4 baseline
+
+Updated the documented public baseline to IDAX Core Runtime, Shell, Ledger and osTRIS 0.4.0, and recorded IDAX Module DevKit 1.1.0 as an available public tool without adopting it into the established STIR repositories. Shell's former temporary compatibility patches are now incorporated upstream; the remaining Ledger and osTRIS patches are still explicit, reviewed public-source compatibility inputs.
+
 ## 0.5.0-rc1
 
 Public Beta hardening: no new product functionality on top of 0.4 - the same software made

@@ -1,6 +1,6 @@
 # Authentication and tenant audit
 
-Public Core 0.3 supplies LocalTokenValidator through TokenValidatorConfig, configured with idax.auth.mode=LOCAL and idax.auth.token-validator=local. Signature verification uses the public half of the locally generated RSA pair at /run/secrets/jwt_public_key; Shell signs with the private half. Private key never enters STIR.
+Public Core 0.4 supplies LocalTokenValidator through TokenValidatorConfig, configured with idax.auth.mode=LOCAL and idax.auth.token-validator=local. Signature verification uses the public half of the locally generated RSA pair at /run/secrets/jwt_public_key; Shell signs with the private half. Private key never enters STIR.
 
 The initial adapter called TokenValidator directly, populated CurrentUser and delegated TenantContextFilter. The live superuser catalogs request returned 403. Public Core's migration comments and Shell composition establish that JwtAuthFilter is responsible for path/header/JWT tenant selection before TenantContextFilter. The corrected StirJwtAuthFilter delegates this public filter; it does not parse claims, implement signatures, select a tenant or query memberships itself. It only rejects validated service identities on personal endpoints and clears contexts. Servlet auto-registration is disabled to avoid duplicate invocation.
 

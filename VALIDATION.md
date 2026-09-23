@@ -2,6 +2,24 @@
 
 Validation performed 2026-09-10–11. Commands run from the named repository. No passwords, tokens or private keys are included. PASS denotes the development foundation, not production readiness.
 
+## Public upstream 0.4 baseline
+
+Validation performed 2026-09-23 from clean, independent clones. This pass changes only the public upstream baseline; it does not add STIR product functionality.
+
+| Check | Command / mechanism | Status | Observed result |
+|---|---|---|---|
+| Public source initialization | `python stir-main/scripts/initialize.py` | PASS | Anonymous clones resolved the exact public 0.4 commits for Core Runtime, Shell, Ledger and osTRIS; local secrets were generated only inside the disposable validation clone. |
+| Shell compatibility | Reverse-apply both former STIR Shell patches against public Shell 0.4.0 | PASS | Both patches are already fully present upstream. They were removed from STIR; no STIR-specific Shell condition remains. |
+| Remaining patches | Sequential `git apply --check` on public Ledger/osTRIS 0.4.0 checkouts | PASS | Ledger's migration switch and osTRIS's migration switch plus public application surface still apply. The duplicated osTRIS Flyway hunk was removed from the second patch so the reviewed patches compose cleanly. |
+| Backend without Docker | `mvn -B -s .mvn/public-settings.xml clean verify '-Dtest=*,!ListingRlsTest'` | PASS | BUILD SUCCESS against public Core 0.4.0; 77 tests, 0 failures/errors/skipped. |
+| Backend RLS/Testcontainers | `mvn -B -s .mvn/public-settings.xml clean verify` | BLOCKED | The other 77 tests passed, but Docker Desktop could not start because its local OTel socket was locked; `ListingRlsTest` could not obtain a Docker environment. This is an environment blocker, not a declared RLS pass. |
+| Frontend clean install | `npm ci` | PASS | Clean install from the public npm lockfile; 0 vulnerabilities reported. |
+| Frontend tests | `npm test` | PASS | 19 tests, 0 failures. |
+| Translations | `npm run i18n:validate` | PASS | 12 locales, 184 keys each. |
+| Frontend build | `npm run build` | PASS | Extension bundle built successfully. |
+| Public-only audit | `python scripts/audit-public.py` | PASS | 208 STIR-owned text files inspected; explanatory matches reviewed; no private dependency, secret, local path or unexplained binary. |
+| Clean Compose, migrations, runtime RLS and E2E | Docker Compose and runtime scripts | BLOCKED | Deferred because Docker Desktop failed before the engine became available. No Docker-dependent result is claimed for the 0.4 baseline. |
+
 | Check | Command / mechanism | Status | Observed result |
 |---|---|---|---|
 | Backend | stir-backend: `mvn -s .mvn/public-settings.xml clean verify` | PASS | BUILD SUCCESS; 9 tests, 0 failures/errors/skipped. Seven Listing tests, one PostgreSQL/Testcontainers migration/RLS test, one validated-service-identity rejection test. |

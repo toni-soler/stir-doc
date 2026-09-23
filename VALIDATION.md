@@ -2,6 +2,38 @@
 
 Validation performed 2026-09-10–11. Commands run from the named repository. No passwords, tokens or private keys are included. PASS denotes the development foundation, not production readiness.
 
+## Public upstream 0.4 baseline
+
+Validation performed 2026-09-23 from clean, independent clones. This pass changes only the public upstream baseline; it does not add STIR product functionality.
+
+| Check | Command / mechanism | Status | Observed result |
+|---|---|---|---|
+| Public source initialization | `python stir-main/scripts/initialize.py` | PASS | Anonymous clones resolved the exact public 0.4 commits for Core Runtime, Shell, Ledger and osTRIS; local secrets were generated only inside the disposable validation clone. |
+| Shell compatibility | Reverse-apply both former STIR Shell patches against public Shell 0.4.0 | PASS | Both patches are already fully present upstream. They were removed from STIR; no STIR-specific Shell condition remains. |
+| Remaining patches | Sequential `git apply --check` on public Ledger/osTRIS 0.4.0 checkouts | PASS | Ledger's migration switch and osTRIS's migration switch plus public application surface still apply. The duplicated osTRIS Flyway hunk was removed from the second patch so the reviewed patches compose cleanly. |
+| Backend (full, with Docker) | `mvn -B -s .mvn/public-settings.xml clean verify` | PASS | Docker Desktop restarted and confirmed reachable (`docker ps`) before this run. BUILD SUCCESS against public Core 0.4.0; 81 tests, 0 failures/errors/skipped, including `ListingRlsTest` against a real Testcontainers PostgreSQL 17 (previously blocked - see the earlier no-Docker row in the initial 2026-09-23 pass, superseded by this one). |
+| Frontend clean install | `npm ci` | PASS | Clean install from the public npm lockfile; 0 vulnerabilities reported. |
+| Frontend tests | `npm test` | PASS | 19 tests, 0 failures. |
+| Translations | `npm run i18n:validate` | PASS | 12 locales, 184 keys each. |
+| Frontend build | `npm run build` | PASS | Extension bundle built successfully. |
+| Public-only audit | `python scripts/audit-public.py` | PASS | 208 STIR-owned text files inspected; explanatory matches reviewed; no private dependency, secret, local path or unexplained binary. Re-run again after the full Docker battery below with an identical result. |
+| Workspace | root: `python scripts/validate-workspace.py` | PASS | Five independent Git roots, relative paths/tasks, no child files or gitlinks. |
+| Clean Compose rebuild | `docker compose down -v`; `docker compose build --no-cache`; `docker compose up -d`; `docker compose ps` | PASS | All volumes/networks removed first, guaranteeing an empty starting state. All eight images rebuilt with no cache, no errors in the build log. All ten long-running services reached `healthy`/`Up`; `core-migrations`, `module-migrations` and `runtime-provision` (one-shot jobs) each exited 0. Re-checked `docker compose ps` after the full E2E battery below: still all healthy, no restarts. |
+| Migrations from empty volume | `core-migrations`/`module-migrations` container logs | PASS | Flyway applied all 91 `idax_core` migrations plus the `stir` schema migrations (through v4 - public pilot) from a completely empty PostgreSQL volume. |
+| Runtime PostgreSQL identity + RLS | `python scripts/multitenant.py` | PASS | Live JDBC login is `idax_backend`, confirmed `NOSUPERUSER`/`NOBYPASSRLS`, no database/schema `CREATE` privilege. RLS enabled and forced on all thirteen tenant-scoped tables; both `idax_app` and `idax_admin` contexts isolate tenant A from tenant B; no tenant sees zero rows. |
+| A/B HTTP isolation | `python scripts/multitenant.py` | PASS | Ordinary owner read/update; foreign UUID read/update/close 404; foreign tenant path and contradictory `X-Tenant` header denied; combined filters isolated; owner forgery rejected. |
+| Listing HTTP smoke | `python scripts/smoke.py` | PASS | Login; missing/malformed/tampered JWT 401; catalogs; create/read/filter/edit; stale update 409; close; closed-edit 409; bounded pagination 400. |
+| Marketplace E2E | `python scripts/marketplace_e2e.py` | PASS | Ana/Pedro negotiate to an Agreement + AgreementSnapshot with matching digests; Carlos (same tenant, uninvolved) sees the public Listing only; a Tenant B participant sees nothing. |
+| Economic exchange HTTP E2E | `python scripts/economic_exchange_e2e.py` | PASS | OFFER and WANTED direction, real Ed25519 signing, osTRIS commit, reconciliation via `sync()`, idempotent repeat calls, and a real credit-floor policy rejection (Agreement kept, Trade `REJECTED`, no balance/journal change). |
+| Listing/WANTED browser E2E | `python scripts/browser-smoke.py` | PASS | Real browser login, tenant selection, Shell module load, WANTED create/list/filter/edit/close, CLOSED query, navigation and deep-link reload; no JavaScript page errors. |
+| Marketplace browser E2E | `python scripts/marketplace_browser_smoke.py` | PASS | Two independent real browser sessions (Ana, Pedro) complete publish/offer/counter/accept through the rendered UI, reaching a visible Agreement; no JavaScript page errors. |
+| Economic exchange browser E2E | `python scripts/economic_browser_smoke.py` | PASS | Two real browser sessions each hold their own WebCrypto Ed25519 key in that session's own IndexedDB; both sign and reach a visible `COMMITTED` state; no JavaScript page errors. |
+| Public Pilot core flow browser E2E | `python scripts/public_pilot_browser_smoke.py` | PASS | Profile/avatar upload, photographed Listing publish and thumbnail, Home dashboard, notifications page; no JavaScript page errors. |
+| Credential/device lifecycle browser E2E | `python scripts/credential_device_lifecycle_browser_smoke.py` | PASS | Second real browser device added as an osTRIS signer, first device's credential revoked from the second, surviving device self-lockout-protected, then completes a real signed economic exchange with Pedro; no JavaScript page errors. |
+| Moderation browser E2E | `python scripts/moderation_browser_smoke.py` | PASS | Moderation queue reachable only by `stir.moderation.manage`; Carlos reports a real Listing, the moderator hides it, it disappears from public search while staying visible (marked hidden) to its owner; no JavaScript page errors. |
+
+No Docker-dependent check remains blocked for the 0.4 baseline; every row above was actually executed against the running stack, none is inferred or reused from an earlier phase's result.
+
 | Check | Command / mechanism | Status | Observed result |
 |---|---|---|---|
 | Backend | stir-backend: `mvn -s .mvn/public-settings.xml clean verify` | PASS | BUILD SUCCESS; 9 tests, 0 failures/errors/skipped. Seven Listing tests, one PostgreSQL/Testcontainers migration/RLS test, one validated-service-identity rejection test. |

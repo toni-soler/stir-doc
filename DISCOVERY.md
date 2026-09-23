@@ -1,4 +1,22 @@
-# Public 0.3 discovery
+# Public upstream discovery
+
+## Current 0.4 baseline
+
+Anonymous `git ls-remote` and clean tag checkouts verified these public release commits on 2026-09-23:
+
+| Repository | Release | Commit |
+|---|---|---|
+| idax-core-runtime | 0.4.0 | 2b34369b490fd903495b98d55335bd8a1e61f214 |
+| idax-shell | 0.4.0 | 48d9207207ccebec520f6a7e343646800ecd90a1 |
+| idax-ledger | 0.4.0 | b6b31f0a78c7fe850fe6852d8cd124d19ff7bc45 |
+| ostris | 0.4.0 | 1af4a6af88c592e1d903307a5bbbd017e2b9c640 |
+| idax-module-devkit | 1.1.0 | 8ea16247332c7248415800dd97e6ee09fac98aba |
+
+Maven: `es.idynamicsax.idax:idax-core:0.4.0` from the public Core Maven repository. IDAX Module DevKit 1.1 is public and provides scaffold v2 plus `createModuleMetadataLoader`; STIR 0.5 does not fetch generated manifest/CRUD metadata at runtime and does not adopt the DevKit in this compatibility-only update. Its tenant-aware marketplace catalogs remain ordinary domain API data and must not use a cross-tenant module-global metadata cache.
+
+Shell 0.4 contains the complete manifest-driven extension and effective-permissions contracts formerly carried by STIR patches. Ledger/osTRIS 0.4 do not yet contain all composition/public-pilot contracts STIR consumes, so their reviewed patches remain.
+
+## Historical 0.3 discovery
 
 Anonymous git ls-remote verified these toni-soler GitHub v0.3.0 commits on 2026-09-10:
 

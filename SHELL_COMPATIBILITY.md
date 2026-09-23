@@ -1,17 +1,17 @@
 # Shell compatibility and upstream work
 
-**TEMPORARY PUBLIC-SOURCE COMPATIBILITY ADAPTER**
+## Shell 0.4 baseline
 
-STIR pins public Shell 0.3.0 and applies the reviewed patch shipped in stir-main/patches. This is public source and reproducible, not a private dependency. It is temporary, not the permanent extension contract.
+STIR pins public IDAX Shell 0.4.0. The release contains the complete generic extension contract and effective-permissions session surface that STIR previously applied as two temporary patches.
 
-An independent worktree/branch `codex/public-extension-contract` contains local commit `afb3dce1ef7d6f722f18f804bb1f70f48687168c` for the platform fix against public Shell commit a697c946e72feffcd20598ab61eada48d060c99a. No push, release or change to tag 0.3.0 occurs. A future published Shell version containing this fix is required to remove the adapter; no unassigned version number is promised.
+Equivalence was checked against a clean `v0.4.0` checkout: both former patch files apply cleanly in reverse and cannot apply forwards. This proves their changes are already present in the tagged source. The patches are therefore removed rather than stacked a second time.
 
 Generic behavior: manifest routes are validated and unique/nonoverlapping; reserved API/system roots are forbidden. GET/HEAD SPA handlers exist only at declared prefixes. Static assets retain their handlers and protected APIs retain authentication. Frontend matches the manifest route rather than a list of product IDs. SDK exposes activeTenantId; a tenant change remounts the module and locale changes refresh SDK translation context.
 
-The same public branch corrects the local initializer's tenant creation to use Core's public tenant_create capability. Core 0.3 migration V87 intentionally revoked broad tenant INSERT; runtime must not regain it just to run development bootstrap.
+Shell 0.4 also uses Core's public tenant-creation capability for local initialization. Runtime does not regain broad tenant INSERT privileges.
 
-Ledger/osTRIS public custom Flyway beans have no external-migrations switch. Tiny compatibility patches add idax.module.migrations.enabled (default true). Composition sets it false after one-shot migrations. This changes no economic or evidence behavior and should be contributed to those public modules separately. No runtime has bootstrap database credentials.
+## Remaining public-source compatibility patches
 
-The initializer checks upstream commit, exact origin, tracked diff against the shipped patch and unexpected untracked source. It never silently accepts unrelated vendor edits.
+Ledger 0.4 still needs the small external-migrations switch. osTRIS 0.4 still needs that switch plus STIR's discovery, provisioning and multi-device public-pilot API surface. Composition sets module migrations off after the one-shot migration jobs. These patches change no economic authority boundary: osTRIS remains the sole policy/authorization/commit authority, and no runtime receives bootstrap database credentials.
 
-The change belongs to **idax-shell**, not STIR. Its independent public-origin checkout passed 6 Java tests and 4 frontend tests plus the Vite build. The shipped patch is the exact diff of that commit against the pinned base. STIR consumes it only until an upstream public release provides this generic contract.
+The initializer verifies upstream commit, exact origin, patch applicability and unexpected untracked source. A compatibility patch is removed only after an equivalent tagged public release is demonstrated from a clean checkout.

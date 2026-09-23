@@ -1,6 +1,6 @@
 # STIR ↔ osTRIS integration
 
-## IMPLEMENTED NOW (public osTRIS 0.3, extended for STIR 0.3)
+## IMPLEMENTED NOW (public osTRIS 0.4 baseline, extended by STIR's reviewed public-pilot patch)
 
 Verified against [public osTRIS](https://github.com/toni-soler/ostris) commit d92aa1f605884ebdcd8e97fff46f4067b0416bcc, extended in the same repository with the discovery/provisioning/status surface below: TransactionController, ProposalAuthorizationService, CommitReceipt, DiscoveryController/DiscoveryService, ProvisioningController/ProvisioningService and CORE_WIRE_AND_DECISION_SEMANTICS_V0_1.md.
 

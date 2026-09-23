@@ -2,7 +2,7 @@
 
 ## Upstream 0.4 baseline
 
-Updated the documented public baseline to IDAX Core Runtime, Shell, Ledger and osTRIS 0.4.0, and recorded IDAX Module DevKit 1.1.0 as an available public tool without adopting it into the established STIR repositories. Shell's former temporary compatibility patches are now incorporated upstream; the remaining Ledger and osTRIS patches are still explicit, reviewed public-source compatibility inputs.
+Updated the documented public baseline to IDAX Core Runtime, Shell, Ledger and osTRIS 0.4.0, and recorded IDAX Module DevKit 1.1.0 as an available public tool without adopting it into the established STIR repositories. Shell's former temporary compatibility patches are now incorporated upstream; the remaining Ledger and osTRIS patches are still explicit, reviewed public-source compatibility inputs. The initial 2026-09-23 pass left every Docker-dependent check blocked on a local Docker Desktop failure; a same-day follow-up with Docker operational completed the full battery - clean `down -v`/`build --no-cache`/`up -d`, migrations from an empty volume, runtime PostgreSQL identity and RLS, and every existing smoke/multitenant/marketplace/economic/browser E2E - with no new bugs found. See VALIDATION.md's "Public upstream 0.4 baseline" section for the complete, non-inferred evidence.
 
 ## 0.5.0-rc1
 

@@ -168,7 +168,9 @@ Validation performed 2026-09-14. 0.5 adds no product functionality - it hardens 
 
 ## Public repositories readiness (0.5)
 
-`ostris` and `idax-shell` already have their real public remotes (`github.com/toni-soler/ostris`, `github.com/toni-soler/idax-shell`) - the 0.4 credential-lifecycle work and the 0.5 permission-visibility fix are committed locally but **not pushed**. The five STIR-family repositories (`stir`, `stir-backend`, `stir-frontend`, `stir-main`, `stir-doc`) have **no remote configured at all** (`stir/README.md` already said this explicitly before 0.5 started). Both are genuine, reportable gaps - not something this work invented a workaround for: publishing 0.5 as a real, third-party-reproducible release requires the operator to (1) create/confirm the intended public STIR remotes and push the 5 STIR repos there, and (2) push the two already-public-remote commits (`claude/stir-0.4-public-pilot` on ostris, `claude/session-permission-visibility` on idax-shell) or merge them into those repos' own release branches first. See the delivery report's "External infrastructure required" section for the exact list.
+The five STIR-family repositories are public under `github.com/toni-soler`: `stir-workspace`, `stir-doc`, `stir-backend`, `stir-frontend` and `stir-main`. Their `main` branches contain the validated 0.5.0-rc1 state and each local checkout tracks its corresponding `origin/main`.
+
+`ostris` and `idax-shell` already have their own public remotes. The additional 0.4 credential-lifecycle work and 0.5 permission-visibility fix consumed by this composition remain represented by reviewed, versioned public-source patches in `stir-main`; they have not yet been incorporated into an upstream release. A future STIR baseline should remove each compatibility patch only after the equivalent contract is present in a tagged public upstream release.
 
 ## Bugs found and fixed during 0.5 validation
 

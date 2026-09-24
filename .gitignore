@@ -1,5 +1,8 @@
 .local/
 .env
+# Operational handoff notes between agents (Claude Code / Codex) working on this local
+# checkout - not product documentation, never belongs in the public repo.
+manual-usuario/
 node_modules/
 dist/
 target/

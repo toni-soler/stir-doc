@@ -2,7 +2,7 @@
 
 Any instance must build/run using public sources, public documented artifacts and locally generated secrets. Core 0.4.0 is a public binary exception to source reproducibility under its own license. STIR never builds private Core source.
 
-Prohibited: private GitLab repositories, private Maven artifacts, private Docker images, private NPM packages, FreeFolk code, COMART components, private IDAX Core source, versioned secrets, machine-specific absolute paths, file:// dependencies and manually compiled unreproducible artifacts. Names here only define prohibitions.
+Prohibited: private source repositories, private Maven artifacts, private Docker images, private NPM packages, undisclosed proprietary components, private IDAX Core source, versioned secrets, machine-specific absolute paths, file dependencies and manually compiled unreproducible artifacts.
 
 Checklist:
 
@@ -17,4 +17,4 @@ Checklist:
 - Empty-volume stack, login and tenant isolation tested.
 - Hostname is configuration, not application logic.
 
-Run stir-main's boundary audit. Review explanatory matches rather than deleting blindly. Git pinning does not freeze container/Maven transitives: release image digests and SBOM remain future production gates.
+Run stir-main's boundary audit. Review every reported match before publishing. Git pinning does not freeze container/Maven transitives: release image digests and SBOM remain future production gates.

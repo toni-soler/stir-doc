@@ -204,7 +204,7 @@ protocol extension. No such migration is silently introduced here.
 |---|---|
 | Five agreements between the same two accounts | LOW_DIVERSITY + CONCENTRATED, no amounts |
 | Many counterparties trading through one account | CONCENTRATED despite count/diversity |
-| Related accounts pretending to be independent | Account concentration can detect repeated accounts, not undisclosed identity links; UI reports this limitation |
+| Related accounts pretending to be independent | Resolved for accounts osTRIS has confirmed related (`PARTICIPANT_INDEPENDENCE.md`): excluded per-observation as `RELATED_PARTICIPANT_CLUSTER`, diversity/concentration corrected down. Still open for accounts osTRIS has no data on - honestly reported as unknown, never assumed independent |
 | Extreme listing/proposal never accepted | Not an AGREEMENT; excluded with source reason |
 | One extreme accepted agreement | SMALL_SAMPLE; no fabricated range |
 | Two observations | INSUFFICIENT_DATA; amounts/counts suppressed |
@@ -243,15 +243,27 @@ fixtures rather than changing a machine clock or backdating real business rows.
 
 ## Deliberately deferred
 
-Verified related-account grouping and independent-person counts; differential
-privacy/formal disclosure budgets; consent withdrawal/retention workflow; richer
-quantity conversions; multi-community marketplaces per tenant; voting/quorum;
-publication revocation/supersession decisions; imports of listing/wanted/seed
-evidence; independent context anchoring; and extraction into a shared service
-before a second consumer exists. A frontend policy editor (window/minimums/
-freshness, inside constitutional floors) shipped with Community Value Governance;
-still deferred is any UI for the protected constitutional fields themselves -
-those remain reachable only through a signed 7-of-7 Seven Keys amendment.
+Differential privacy/formal disclosure budgets; consent withdrawal/retention
+workflow; richer quantity conversions; multi-community marketplaces per
+tenant; voting/quorum; publication revocation/supersession decisions;
+imports of listing/wanted/seed evidence; independent context anchoring; and
+extraction into a shared service before a second consumer exists. A frontend
+policy editor (window/minimums/freshness, inside constitutional floors)
+shipped with Community Value Governance; still deferred is any UI for the
+protected constitutional fields themselves - those remain reachable only
+through a signed 7-of-7 Seven Keys amendment.
+
+**Verified related-account grouping and independent-person counts shipped**
+with the Participant Independence increment
+(`PARTICIPANT_INDEPENDENCE.md`) - `EvidenceAnalysis`'s
+`identityAssurance` field is a real computed value now, not the hardcoded
+`ACCOUNTS_ONLY_RELATED_ACCOUNTS_UNKNOWN` placeholder it used to be, backed by
+a minimal STIR-side projection of osTRIS's own private identity-continuity
+decisions. Still deferred within that increment: a fully automatic STIR→
+osTRIS service credential (refresh stays explicitly publisher-triggered);
+cluster-aware relationship-diversity counting (`relationshipCount` still
+counts raw account pairs); and `IdentityAssuranceClaim` (KYC-level)
+revocation tracking.
 
 ## Technical observations relevant to a future editorial discussion
 

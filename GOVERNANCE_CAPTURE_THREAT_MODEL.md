@@ -34,6 +34,43 @@ constitutional changes unavailable, especially while controller-replacement
 finality lacks a verified contract. These are not solved by an opaque fraud score
 or a superkey.
 
+**Custody is device custody, not identity custody.** `governance-signer.js`
+generates each seat/Guardian key as a non-extractable WebCrypto `CryptoKey`:
+that key's raw bytes genuinely cannot be exported off the device holding it.
+It does not follow that the key is unusable by a compromised client - any
+code with access to that origin's IndexedDB and the WebCrypto API (a
+malicious extension, a compromised dependency, a compromised OS) can still
+ask the `CryptoKey` to sign an attacker-chosen message. The guarantee is
+"cannot be exfiltrated as bytes," not "cannot be misused in place." A
+hardware-backed credential (WebAuthn or similar) is the natural future
+evolution if a stronger guarantee is needed; it is not implemented today.
+
+**Same-device bootstrap is a test fixture, not a ceremony.** The bootstrap
+wizard's "generate/sign here" shortcuts let one browser hold every seat's key
+- exactly what the local dev stack, the HTTP/browser E2E scripts and the
+`stir-pruebas` tenant do, deliberately, for fast iteration. That is one
+device holding seven-plus-one credentials, not seven independent custodians,
+and the UI says so (a same-device-ceremony warning on the bootstrap step).
+Treating a same-device bootstrap as a real community's constitutional
+ceremony would silently collapse the whole 7-of-7 threshold to "whoever
+controls that one device."
+
+**CATASTROPHIC / MULTI-KEY RECOVERY SPEC GAP.** Same-controller rotation
+(`ROTATE_CREDENTIAL`) needs the Guardian plus the other six active seats.
+Losing two or more seat credentials at once - or one seat credential plus the
+Guardian credential - has no recovery path in the current design: there is no
+6-of-6 to ask, and no fallback threshold is introduced to work around that
+(no master key, no emergency 5-of-7 constitutional path, no SuperAdmin
+recovery, no server-generated replacement key, no quorum downgrade). This is
+deliberate fail-closed behavior, not an oversight, and it is the same
+engineering posture as `REPLACE_CONTROLLER`'s
+`FINAL_RESOLUTION_VERIFICATION_UNAVAILABLE` gap in `CREDENTIAL_RECOVERY.md`:
+an unsafe shortcut here would make catastrophic loss a backdoor instead of a
+hard problem. A normative design for multi-key catastrophic recovery -
+almost certainly needing real-world, out-of-band re-attestation of
+seat-holder identity before any credential can be reinstated - remains an
+open SPEC GAP.
+
 The engineering observation for the private editorial laboratory is that
 **valid exchange**, **eligible evidence** and **legitimate rule change** are
 three independent judgments. A system can prove which keys signed a proposal

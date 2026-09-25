@@ -163,15 +163,20 @@ next increment only when the actual community workflow requires them. Publicatio
 must not be represented as `adminUpdatePrice()`.
 
 This is *ordinary* community governance, never Seven Keys: `publish()`, `policy()`,
-`propose()` and the market integrity signal/decision endpoints check only
-`stir.references.*` tenant permissions, never a constitutional signature. A
-platform SuperAdmin is explicitly excluded from all of it - `ReferenceController`
-and `MarketIntegrityController` both reject `authentication.principal.superuser`
-outright, because idax-core's permission service otherwise grants every
-`stir.*` permission string to a superuser unconditionally (a platform-wide
-property, not specific to this domain; see GOVERNANCE_CAPTURE_THREAT_MODEL.md).
-Platform administration (creating/enabling a workspace) must never imply
-community governance (publishing its references).
+`propose()`, `create()` and the market integrity signal/decision endpoints
+check `stir.references.*` tenant permissions as usual, but that permission
+check alone is not the authority boundary. idax-core's permission service
+grants every `stir.*` permission string to a platform superuser
+unconditionally (a platform-wide property, not specific to this domain; see
+`GOVERNANCE_CAPTURE_THREAT_MODEL.md`), so **platform capability grants must
+never be interpreted as community governance authority**. The real boundary
+is `ReferenceService.requireCommunityAuthority(CurrentUser user)`, a single
+reusable check called as the first statement inside every one of those six
+service methods - the authoritative layer, reachable by any future caller,
+not only a controller - with `ReferenceController`/`MarketIntegrityController`
+calling the same method again at the top of their handlers as
+defense-in-depth. Platform administration (creating/enabling a workspace)
+must never imply community governance (publishing its references).
 
 ## Agreement context and osTRIS boundary
 

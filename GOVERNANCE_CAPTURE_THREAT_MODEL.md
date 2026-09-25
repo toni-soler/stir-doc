@@ -71,6 +71,28 @@ almost certainly needing real-world, out-of-band re-attestation of
 seat-holder identity before any credential can be reinstated - remains an
 open SPEC GAP.
 
+**Platform SuperAdmin is not a community authority, but the permission layer
+alone does not say so.** idax-core's `PermissionService.hasPermission(user,
+permission)` returns `true` unconditionally when `user.isSuperuser()`, for
+every permission string, in every tenant - confirmed by decompiling the
+vendored `idax-core-0.4.0.jar` at `es.idynamicsax.idax.service.permission.
+PermissionService` and empirically (a superuser token with no tenant role
+read a tenant's reference definition). This is a platform-wide property of
+every `@PreAuthorize("@permissionService.hasPermission('stir.*')")` check in
+STIR, not something this or any STIR increment introduced, and it is out of
+scope to patch in the vendored dependency. `ReferenceController` and
+`MarketIntegrityController` mitigate it locally: their shared `tenant()`
+`@ModelAttribute` explicitly rejects `authentication.principal.superuser`
+before any handler runs, so reading observations, configuring policy,
+publishing a reference, or signaling/deciding a market integrity case all
+stay unreachable to a platform SuperAdmin regardless of what the permission
+check alone would allow. `SevenKeysController` needs no equivalent guard -
+its protection is the Ed25519 signature requirement itself, independent of
+the HTTP permission layer, so a superuser token still cannot forge a seat's
+vote. Any other `stir.*`-gated controller added later inherits the same
+bypass until it adds the same explicit check; this is documented here as
+residual platform-level exposure, not solved everywhere at once.
+
 The engineering observation for the private editorial laboratory is that
 **valid exchange**, **eligible evidence** and **legitimate rule change** are
 three independent judgments. A system can prove which keys signed a proposal

@@ -94,8 +94,13 @@ policy identity/version and thresholds, state, reasons, descriptive fields and a
 JCS/SHA-256 digest. A private evidence manifest stores included observation IDs
 and the reason for each excluded input. Exclusion precedence is deterministic:
 SOURCE_NOT_AGREEMENT, NO_BILATERAL_CONSENT, OUTSIDE_WINDOW, NOT_COMPARABLE,
-MISSING_COUNTERPARTY. This manifest has no community HTTP endpoint. It is retained
-for authorized operational diagnosis, not made accessible to reference publishers.
+MISSING_COUNTERPARTY. Since the Community Value Governance increment, this
+manifest is reachable at `GET .../references/{id}/evidence-manifest`, and the
+underlying raw rows (including `participant_a`/`participant_b`) at
+`GET .../references/{id}/observations` - both gated on `stir.references.publish`,
+never on ordinary read access, and never surfaced through the public snapshot.
+A publisher reviewing why a specific accepted Agreement did or did not count
+toward today's reference is the intended use; this is not a public evidence feed.
 
 ### Daily cuts, rebuilding and privacy
 
@@ -156,6 +161,17 @@ person may propose and publish if granted both permissions. Quorum, ballots,
 separation-of-duties rules, revocation decisions and governance disputes are the
 next increment only when the actual community workflow requires them. Publication
 must not be represented as `adminUpdatePrice()`.
+
+This is *ordinary* community governance, never Seven Keys: `publish()`, `policy()`,
+`propose()` and the market integrity signal/decision endpoints check only
+`stir.references.*` tenant permissions, never a constitutional signature. A
+platform SuperAdmin is explicitly excluded from all of it - `ReferenceController`
+and `MarketIntegrityController` both reject `authentication.principal.superuser`
+outright, because idax-core's permission service otherwise grants every
+`stir.*` permission string to a superuser unconditionally (a platform-wide
+property, not specific to this domain; see GOVERNANCE_CAPTURE_THREAT_MODEL.md).
+Platform administration (creating/enabling a workspace) must never imply
+community governance (publishing its references).
 
 ## Agreement context and osTRIS boundary
 
@@ -226,8 +242,11 @@ Verified related-account grouping and independent-person counts; differential
 privacy/formal disclosure budgets; consent withdrawal/retention workflow; richer
 quantity conversions; multi-community marketplaces per tenant; voting/quorum;
 publication revocation/supersession decisions; imports of listing/wanted/seed
-evidence; a policy editor beyond the versioned API; independent context anchoring;
-and extraction into a shared service before a second consumer exists.
+evidence; independent context anchoring; and extraction into a shared service
+before a second consumer exists. A frontend policy editor (window/minimums/
+freshness, inside constitutional floors) shipped with Community Value Governance;
+still deferred is any UI for the protected constitutional fields themselves -
+those remain reachable only through a signed 7-of-7 Seven Keys amendment.
 
 ## Technical observations relevant to a future editorial discussion
 

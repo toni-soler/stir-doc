@@ -8,4 +8,8 @@ STIR uses the public IDAX Open Core, IDAX Shell, IDAX Ledger and osTRIS 0.4 base
 
 Start with [Architecture](ARCHITECTURE.md), [Domain](DOMAIN_MODEL.md), [Integration](OSTRIS_INTEGRATION.md), [Public boundary](PUBLIC_SOFTWARE_BOUNDARY.md) and [Readiness](IMPLEMENTATION_READINESS.md). Run the local instance from sibling `stir-main`.
 
+Independent distributions: [Community extension guide (proposal)](COMMUNITY_EXTENSION_GUIDE.md) and [FreeFolk Market preparation](FREEFOLK_MARKET_PREPARATION.md). These distinguish current extension points from contracts still to implement.
+
+First catalog consumer implementation and executed checks: [Community extension validation](VALIDATION_COMMUNITY_EXTENSION.md).
+
 Version: `0.5.0-rc1`. 0.5 adds no product functionality on top of 0.4 (photos, notifications, multi-device credential lifecycle, minimal content moderation, configuration-driven instance branding - see [Domain](DOMAIN_MODEL.md)'s "Public pilot additions" section); it hardens the same software into a production-deployable public beta - see [Validation](VALIDATION.md)'s 0.5 section for the production topology, security gate and clean-build evidence. Economic exchange (Agreement -> real osTRIS EXCHANGE -> commit) is implemented for development/validation; see [Integration](OSTRIS_INTEGRATION.md) and [Transaction lifecycle](TRANSACTION_LIFECYCLE.md).

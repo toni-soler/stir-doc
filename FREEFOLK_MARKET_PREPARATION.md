@@ -2,9 +2,11 @@
 
 Estado: propuesta, 2026-09-26. Depende de [la guía genérica de extensión](COMMUNITY_EXTENSION_GUIDE.md). No crea todavía un módulo, un fork, una instancia pública ni una nueva autoridad económica.
 
-Primer incremento técnico en marcha: STIR dispone ahora de una entrada ESM de catálogo y una segunda presentación de ejemplo que la consume; véase `stir-frontend/examples/community-catalog/README.md`. Ya se comprobó la carga en Shell y lectura real del catálogo. Faltan una oferta funcional real en tenant de prueba, una release fijada y el ensayo de upgrade entre revisiones. La fase 1 no se declara cerrada.
+Primer incremento técnico: STIR dispone de una entrada ESM de catálogo y una segunda presentación de ejemplo que la consume; véase `stir-frontend/examples/community-catalog/README.md`. Ya se comprobó la carga en Shell y lectura real del catálogo. La fase 1 de producto no se declara cerrada hasta publicar una release compatible y concretar el primer uso de FreeFolk.
 
-La [validación ejecutada](VALIDATION_COMMUNITY_EXTENSION.md) ya incluye login/consulta reales y un recorrido de detalle/oferta con fixture de navegador. Continúan pendientes una oferta real en tenant de prueba, release fijada y ensayo de actualización.
+La [validación ejecutada](VALIDATION_COMMUNITY_EXTENSION.md) incluye login/consulta reales y el primer recorrido de detalle/oferta con fixture de navegador.
+
+Actualización del segundo incremento: ya se comprobó una **oferta real** en un tenant local aislado y un upgrade del frontend entre dos commits, conservando anuncio, foto y negociación. Véase [la validación](VALIDATION_COMMUNITY_EXTENSION.md). Falta publicar una release/matriz compatible y decidir el primer recorrido específico de FreeFolk; por ello no se declara cerrada la fase 1 de producto.
 
 ## Qué podemos comenzar
 

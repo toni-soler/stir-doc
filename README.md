@@ -12,4 +12,6 @@ Independent distributions: [Community extension guide (proposal)](COMMUNITY_EXTE
 
 First catalog consumer implementation and executed checks: [Community extension validation](VALIDATION_COMMUNITY_EXTENSION.md).
 
+Coordination for parallel work and future integration: [Community extension handoff](COMMUNITY_EXTENSION_HANDOFF.md).
+
 Version: `0.5.0-rc1`. 0.5 adds no product functionality on top of 0.4 (photos, notifications, multi-device credential lifecycle, minimal content moderation, configuration-driven instance branding - see [Domain](DOMAIN_MODEL.md)'s "Public pilot additions" section); it hardens the same software into a production-deployable public beta - see [Validation](VALIDATION.md)'s 0.5 section for the production topology, security gate and clean-build evidence. Economic exchange (Agreement -> real osTRIS EXCHANGE -> commit) is implemented for development/validation; see [Integration](OSTRIS_INTEGRATION.md) and [Transaction lifecycle](TRANSACTION_LIFECYCLE.md).

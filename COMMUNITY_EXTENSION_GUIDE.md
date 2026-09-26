@@ -2,9 +2,11 @@
 
 Estado: **propuesta de arquitectura**, 2026-09-26. No declara un SDK nuevo disponible ni autoriza cambios de protocolo. Primer consumidor previsto: [FreeFolk Market](FREEFOLK_MARKET_PREPARATION.md).
 
-**Incremento en curso:** `stir-frontend` ya contiene una primera entrada pública de catálogo en `src/catalog-client.js`, compilada como `dist/community/stir-catalog.mjs`, y una segunda presentación de ejemplo en `examples/community-catalog/`. El contrato cubre llamadas de catálogo y oferta; no es aún un SDK de componentes, una release etiquetada ni una prueba de actualización de dos versiones. Los criterios de aceptación al final del documento siguen abiertos hasta completar la validación funcional y de actualización.
+**Incremento en curso:** `stir-frontend` contiene una entrada pública de catálogo en `src/catalog-client.js`, compilada como `dist/community/stir-catalog.mjs`, y una segunda presentación de ejemplo en `examples/community-catalog/`. El contrato cubre catálogo, fotos y oferta. Ya se ensayó una actualización entre dos commits; faltan un SDK de componentes, una release etiquetada y la matriz de versiones publicadas.
 
-La [validación del primer consumidor](VALIDATION_COMMUNITY_EXTENSION.md) registra una carga real en Shell y una consulta real a STIR, además de pruebas de UI con fixture para detalle y oferta. Queda pendiente el ensayo de actualización entre releases.
+La [validación del primer consumidor](VALIDATION_COMMUNITY_EXTENSION.md) registra una carga real en Shell y una consulta real a STIR, además de pruebas de UI con fixture para detalle y oferta. El ensayo posterior usa una oferta real y conserva datos al pasar entre dos commits; aún falta repetirlo entre releases publicadas.
+
+El segundo incremento añade fotos autenticadas al mismo cliente y registra una oferta funcional con dos participantes, más un upgrade ensayado entre commits `6f296e5` y `0b3d9af`. El artefacto sigue sin tag/release público ni matriz de versiones publicada. Los detalles y límites están en [la validación](VALIDATION_COMMUNITY_EXTENSION.md).
 
 ## Objetivo y decisión propuesta
 

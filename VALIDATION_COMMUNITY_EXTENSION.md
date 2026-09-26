@@ -20,11 +20,29 @@ STIR y una segunda extensión de Shell consumen el mismo `src/catalog-client.js`
 
 El fixture no valida el procesamiento funcional de una oferta en STIR/osTRIS. El endpoint y el payload de oferta se contrastaron con el código backend (`OfferRequest`, `NegotiationService`); no se cambió ese contrato.
 
-## Pendiente para cerrar la fase 1
+## Pendientes identificados tras el primer incremento
 
 - Publicar/taggear el artefacto y declarar una matriz de versiones Shell/STIR probada. Por ahora se genera desde una revisión Git fijada.
-- Ensayar actualización entre dos revisiones publicadas preservando la segunda presentación; sólo hay una revisión de esta entrada pública.
-- Ejecutar el recorrido completo con datos sintéticos en un tenant de prueba dedicado y dos participantes ordinarios, si el alcance del siguiente incremento necesita comprobar la oferta funcional y su recepción en STIR. Esta validación mantuvo la instancia sin escrituras de prueba.
+- Ensayar actualización entre dos revisiones publicadas preservando la segunda presentación. El segundo incremento de abajo aporta un ensayo entre dos commits locales, todavía sin releases.
+- Ejecutar el recorrido completo con datos sintéticos en un tenant de prueba dedicado y dos participantes ordinarios. Completado en el segundo incremento de abajo.
 - Extraer más capacidades de frontend según las necesidades reales de FreeFolk; este contrato se limita al catálogo.
 
 No se afirma que FreeFolk esté listo para un piloto real ni que Identity Integrity, Ordinary Governance, Consent/Retention, fuentes de referencia o hardware custody estén cerrados.
+
+## Segundo incremento: recorrido funcional y actualización (2026-09-26)
+
+Se usaron worktrees separados para frontend, documentación, composición y un backend **detached en `381b156`**. El checkout normal de `stir-backend` tenía cambios sin confirmar de Ordinary Governance de Claude Code; no se modificó ni se compiló. El override local de Compose apuntó tanto el build backend como sus migraciones a ese worktree estable. `stir-main` y sus vendors permanecieron sin cambios en el checkout normal.
+
+La primera revisión frontend fue `6f296e5` (contrato de catálogo), la segunda `0b3d9af` (métodos aditivos `photos` y `contentUrl`, miniaturas en la segunda presentación y galería STIR consumiendo `photos`). No se cambió `CATALOG_CONTRACT_VERSION = 1`, ya que las entradas anteriores siguen disponibles.
+
+| Comprobación | Resultado |
+|---|---|
+| `npm test`, build e i18n en la segunda revisión | PASS: 39 pruebas, build del ESM y ambas extensiones, 12 locales/438 claves. |
+| Compose con backend estable y segunda presentación | PASS: migraciones, Shell, STIR, osTRIS y proxy saludables. |
+| Playwright + API real en tenant nuevo de pruebas | PASS: Ana publicó un anuncio y subió un PNG sintético; Pedro, con una sesión ordinaria, abrió la segunda presentación, vio anuncio/foto, envió una oferta real y STIR persistió negociación, autor y anuncio correctos. La galería STIR también leyó la foto. |
+| Ensayo de actualización `6f296e5` → `0b3d9af` | PASS: se creó anuncio/foto/negociación con la revisión anterior, se reconstruyó **sólo `stir-ui`** con la segunda revisión y el mismo Pedro pudo volver a leer el anuncio, ver la foto en ambas presentaciones y abrir el hilo anterior. Backend, Shell, osTRIS y volúmenes se mantuvieron. |
+| Cierre y datos sensibles | PASS: Compose `down` sin borrar volúmenes; fichero temporal local con la contraseña de prueba eliminado. |
+
+Las escrituras fueron exclusivamente en tenants nuevos `catalog-e2e-*` de desarrollo. Los scripts reproducibles están en `stir-main/scripts/community_catalog_browser_e2e.py` y `community_catalog_upgrade_e2e.py`; el manifest y proxy opcionales están en `stir-main/examples/community-catalog/`. En este ensayo se usó un override `.local` adicional para apuntar a los worktrees aislados.
+
+Esto prueba una actualización entre **dos commits locales fijados**, no entre dos releases publicadas. Quedan pendientes un tag/release del contrato, una matriz publicada de compatibilidad Shell/STIR, y la extracción de otros recorridos que FreeFolk decida personalizar. La oferta real comprobada crea una negociación STIR; no se probó aquí un commit económico osTRIS.

@@ -156,11 +156,14 @@ expires, older versions do not silently become current again. No update/delete
 endpoint exists. Database privileges and immutable triggers protect definitions,
 policies, observations, snapshots, proposals, publications and agreement context.
 
-v0.1 uses a delegated publisher, not a claim of democratic consensus. The same
-person may propose and publish if granted both permissions. Quorum, ballots,
-separation-of-duties rules, revocation decisions and governance disputes are the
-next increment only when the actual community workflow requires them. Publication
-must not be represented as `adminUpdatePrice()`.
+v0.1 shipped a delegated publisher, not a claim of democratic consensus. A real
+quorum-based alternative now exists too (`ORDINARY_GOVERNANCE.md`) - a community
+can opt in per-community to require an approved ordinary vote before publishing a
+reference or changing its policy, instead of a single publisher's decision; the
+delegated-publisher path stays available and unchanged for any community that has
+not opted in. Revocation decisions and governance disputes remain deferred until
+the actual community workflow requires them. Publication must not be represented
+as `adminUpdatePrice()`.
 
 This is *ordinary* community governance, never Seven Keys: `publish()`, `policy()`,
 `propose()`, `create()` and the market integrity signal/decision endpoints

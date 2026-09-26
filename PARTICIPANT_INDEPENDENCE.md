@@ -177,18 +177,73 @@ what was recorded, not today's state. If a new decision changes future
 eligibility, that shows up only in a later day's new snapshot/version,
 exactly like every other policy or integrity-finding change in this system.
 
+## Hardening: cluster-aware relationship diversity (Ordinary Governance increment)
+
+`relationshipCount`/`INSUFFICIENT_INDEPENDENT_RELATIONSHIPS`/`REPEATED_RELATIONSHIP`
+counted raw `(a,b)` account pairs - a single real actor trading through several
+accounts of the same confirmed cluster against genuinely different counterparties
+could inflate that count (three raw pairs, really one relationship in disguise).
+`EvidenceAnalysis.analyze()` now also computes a cluster-collapsed pair map (a pair's
+key becomes `(clusterKey(a), clusterKey(b))`, so two raw pairs sharing a confirmed
+cluster on one side collapse to one) and two **additive** reason codes,
+gated on the same `independenceChecksRequired`/`concentrationChecksRequired` flags and
+non-zero coverage as the earlier participant-level hardening - the original
+`relationshipCount`/`INSUFFICIENT_INDEPENDENT_RELATIONSHIPS`/`REPEATED_RELATIONSHIP`
+fields and thresholds are untouched, byte-identical when no independence data exists:
+
+- `INSUFFICIENT_ASSURED_RELATIONSHIPS` - the cluster-adjusted relationship count is
+  below `minimumRelationships`, even when the raw count alone would have passed
+  (`hubTradingWithThreeAccountsOfTheSameClusterDoesNotCountAsThreeIndependentRelationships`).
+- `HIGH_ASSURED_RELATIONSHIP_CONCENTRATION` - a cluster's combined share of included
+  observations exceeds `maximumPairShare`, even when no single raw account crosses
+  that floor individually (the same "split concentration across two accounts" pattern
+  already caught at the participant level, now also caught at the relationship level).
+
+Three separate, honestly-distinguished reporting metrics are always shown (never
+conflated): `relationshipCount` (raw), `assuredIndependentRelationships` (both sides of
+the pair were actually assessed, and - by construction, since a same-cluster pair was
+already excluded per-observation - found not related), and `unknownRelationships` (at
+least one side was never assessed). `unknownRelationships` is never folded into
+`assuredIndependentRelationships` and vice versa
+(`rawAssuredAndUnknownRelationshipCountsAreReportedSeparatelyNeverConflated`).
+
+**Still open**: a sybil cluster represented through *several different raw account
+pairs against several different counterparties* (not sharing a single hub account) is
+not yet caught - the cluster-collapsing only merges pairs that already share an
+account or a confirmed-related account on the same side. A full cluster-pair
+aggregation (grouping by cluster identity alone, independent of which raw account
+carried it) would need a further pass; named here rather than silently left.
+
+## Hardening: refresh coverage integrity (Ordinary Governance increment)
+
+`independenceAssuranceCoveragePercent` already existed (how much of the evidence has
+ever been assessed), but nothing previously let a policy *require* a minimum before
+treating a cohort as sufficient - a publisher could technically let coverage stay at
+0% forever without consequence. `stir.reference_policy` gained a nullable
+`minimum_independence_coverage_percent` column (ordinary field, not constitutional-
+authority-protected, `PolicyRequest`'s 11th field) - null means "no requirement" (the
+default, fully backward compatible). When set, falling short produces the explicit,
+reproducible reason `INSUFFICIENT_INDEPENDENCE_COVERAGE` - never a silent estimate,
+never a rounded-up guess (`policyRequiringMinimumCoverageProducesAReproducibleReasonNotAnEstimate`).
+`UNKNOWN != INDEPENDENT` holds exactly as before: this hardening only ever adds a new
+way to *reject* insufficient coverage, it never lets low coverage pass as if it were
+high, and a publisher gains no way to convert absent refresh data into an appearance of
+independence - the underlying `haveCoverage`/`identityAssurance` computation is
+unchanged.
+
 ## What is deliberately not built here
 
 - **A STIR→osTRIS service credential** for fully automatic, reader-triggered
   refresh - explicitly deferred (see above); the persisted-projection design
   needs no new cross-service trust boundary.
-- **Cluster-aware relationship-diversity counting** (`relationshipCount`/
-  `INSUFFICIENT_INDEPENDENT_RELATIONSHIPS`/`REPEATED_RELATIONSHIP` still
-  count raw account pairs, not cluster pairs). A sybil cluster represented
-  through several *different* raw account pairs against different
-  counterparties is not yet caught by the relationship-diversity checks,
-  only by the participant-count/concentration ones. A real fix needs a
-  cluster-pair aggregation pass; flagged here rather than silently left.
+- **Cluster-aware relationship-diversity counting - partially closed** in the
+  Ordinary Governance increment (see the Hardening section above):
+  `INSUFFICIENT_ASSURED_RELATIONSHIPS`/`HIGH_ASSURED_RELATIONSHIP_CONCENTRATION`
+  now catch a hub account whose counterparties share a confirmed cluster. Still
+  open: a sybil cluster represented through several *different* raw account
+  pairs against *different* counterparties, with no shared hub account, is not
+  yet caught - that needs a cluster-identity aggregation pass independent of
+  which raw account carried it, not the pair-collapsing done here.
 - **`IdentityAssuranceClaim` (KYC-level) revocation tracking** - the private
   continuity endpoint this integration uses answers relatedness, not
   assurance-claim lifecycle; `IDENTITY_ASSURANCE_REVOKED` from the original
@@ -217,10 +272,13 @@ exactly like every other policy or integrity-finding change in this system.
 
 ## Validation
 
-Backend: `mvn verify` - `EvidenceAnalysisTest` (pure function, 6 new tests:
-same-cluster exclusion, different-cluster non-exclusion, raw-diversity-at-
-floor corrected down, split-concentration-across-two-cluster-members,
-mixed known/unknown coverage, honest-placeholder-without-data) and
+Backend: `mvn verify` - `EvidenceAnalysisTest` (pure function, 6 tests from the
+original increment: same-cluster exclusion, different-cluster non-exclusion,
+raw-diversity-at-floor corrected down, split-concentration-across-two-cluster-
+members, mixed known/unknown coverage, honest-placeholder-without-data; plus
+3 more from the Ordinary Governance increment's hardening: hub-with-same-
+cluster-counterparties-collapsed, raw/assured/unknown relationship counts kept
+separate, minimum-coverage-policy producing a reproducible reason) and
 `ParticipantIndependencePostgresTest` (13 tests: no-binding, real
 `CONTINUITY_NOT_FOUND`/`CONTESTED`/`REJECTED` mapping, SuperAdmin rejection,
 monotonic upsert, idempotency, staleness-past-policy, per-observation

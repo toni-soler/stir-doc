@@ -1,0 +1,49 @@
+# Mixed consideration: prueba de extensión sobre STIR
+
+Estado: **experimento en ramas/worktrees aislados**, 2026-09-26. No es una especificación de pagos productivos, ni una extensión upstream ya publicada, ni una autorización para operar con dinero real.
+
+## Decisión de frontera
+
+`STIR → osTRIS` mantiene el EXCHANGE de la pata osTRIS aceptada. La distribución externa conserva las otras patas, cuentas de cobro, adaptadores FIAT, comisiones y su ejecución. La dependencia es `distribución → STIR`; no existe una importación, tabla o referencia FreeFolk en STIR u osTRIS.
+
+Una oferta con `30` unidades osTRIS y `70 EUR` representa **dos obligaciones**. STIR recibe `proposedAmount=30` y una referencia opaca al contrato externo; el módulo de distribución conserva la obligación `70 EUR`. En una oferta sólo FIAT, `proposedAmount=null`, por lo que la fase económica de STIR puede ser `NOT_APPLICABLE` aunque la distribución todavía tenga una obligación pendiente. Los estados agregados de la distribución no reinterpretan `Agreement.economicPhase` de STIR.
+
+El contrato genérico propuesto para upstream añade a cada Offer `externalContractNamespace` y `externalContractDigest` (SHA-256 hexadecimal, ambos opcionales pero siempre juntos). El snapshot inmutable del Agreement incluye estos campos con `schemaVersion=3`; el digest de ese snapshot continúa siendo el `contractualMetadataDigest` de la transacción STIR/osTRIS. STIR **no** resuelve el namespace, inspecciona términos externos, ejecuta FIAT ni garantiza que la extensión conserve los bytes originales. La distribución debe almacenar los términos inmutables antes de enviar la oferta, comprobar el digest retornado y verificarlo otra vez tras aceptar. Cada contraoferta porta un digest nuevo; el anterior permanece en el historial.
+
+El precio acordado y las comisiones tienen identidad propia. Una comisión FIAT de un proveedor `seller-owned` es una obligación posterior `vendedor → plataforma`, no una resta oculta del precio. Un proveedor `marketplace-aware` futuro podrá declarar `split`, pero el contrato nunca lo presupone. La comisión osTRIS es **otra operación osTRIS identificada**, autorizada por las cuentas afectadas y vinculada al Agreement original mediante su propio compromiso y referencias; no reduce los `30` originales ni sustituye el digest contractual del EXCHANGE del precio. En la prueba, una cuenta de plataforma activada se registra por un actor con permiso de gestión del tenant; el vendedor propone un `SETTLEMENT` de 1,50 unidades, vendedor y plataforma lo firman voluntariamente y el módulo sólo registra éxito tras comprobar `COMMITTED` en osTRIS. La operación incluye su propio ID, digest de intención de fee y referencia al Agreement. El backend STIR y osTRIS no contienen ninguna regla de comisión FFM. El flujo de firma/gestión de plataforma productivo sigue sin especificar y no se debe trasladar la clave al módulo.
+
+## Modelo mínimo del experimento
+
+- `terms`: modo `OSTRIS`, `FIAT` o `MIXED` y patas tipadas con importe decimal expresado como cadena; la pata FIAT incluye ISO currency y la osTRIS incluye unit ID. Ninguna pata lleva el equivalente en la otra unidad.
+- `Agreement extension record`: tenant, partes, accepted Offer ID, digest del Agreement STIR, términos originales, patas de ejecución y comisiones separadas. Se crea sólo si el snapshot de STIR contiene el digest de términos aceptados.
+- `execution leg`: `PENDING`, `SUCCEEDED`, `FAILED`, `REFUNDED`, `REVERSED` o `DISPUTED`, más evidencia y referencia del proveedor. La comisión osTRIS añade `AWAITING_SIGNATURES` antes del commit. `PARTIALLY_EXECUTED` es una proyección de varias patas, nunca un supuesto de atomicidad distribuida.
+- `payment account`: asociada al usuario/tenant vendedor; el adaptador de prueba guarda sólo un identificador sintético. Una integración real necesitará un vault por usuario/tenant, rotación, revocación y referencias opacas; no se persistirán secretos PSP en la tabla de acuerdos.
+- `provider capabilities`: `sellerOwnedAccount`, `marketplaceSplit`, `refund`, `dispute`. El `TEST_PAYMENT_PROVIDER` declara seller-owned y `marketplaceSplit=false`; los resultados son evidencia **simulada**.
+
+Ni el plugin ni el frontend reciben acceso de escritura a tablas core. Cada operación sobre anuncios, negociación, Agreement y Trade usa la API autenticada de STIR bajo el token y tenant del actor. STIR vuelve a comprobar permisos, pertenencia a las partes, RLS y sus invariantes. La extensión además compara tenant, titular y digest en su propia persistencia. Esta defensa no equivale a una auditoría de seguridad productiva: el almacenamiento de fichero del experimento no tiene RLS SQL, locking transaccional ni idempotencia suficiente para PSP reales.
+
+La UI experimental es una extensión de Shell con marca, diseño, navegación y desglose propios. Reutiliza sesión, tenant y APIs; para firmar el EXCHANGE osTRIS enlaza al recorrido criptográfico actual de STIR, sin copiar el signer ni custodiar la clave. Una UI FFM definitiva podría reemplazar también esa pantalla cuando STIR publique el contrato frontend de firma correspondiente.
+
+## Decisión de upstream y contratos pendientes
+
+Subir a STIR sólo el compromiso opaco Offer→Agreement y su lectura de snapshot: cualquier distribución puede fijar términos externos sin que STIR entienda su semántica. Mantener exclusivamente en FFM modalidades FIAT/MIXED, proveedor, cuenta de vendedor, políticas de comisión, obligación de fee, estados de pago y presentación. osTRIS conserva el EXCHANGE del precio y el SETTLEMENT voluntario de comisión como transacciones independientes; no necesita cambios para la prueba.
+
+Para una distribución productiva aún faltan: un contrato frontend público de firma osTRIS que permita presentación propia sin copiar la pantalla STIR; persistencia transaccional y tenant-scoped para términos/evidencia externos; validación de webhooks, idempotencia, reconciliación y secretos de PSP; política de retención/consentimiento y controles de acceso para reporting. El experimento no demuestra que un plugin arbitrario no pueda saltarse invariantes si recibe credenciales de servicio o acceso SQL privilegiado: el límite validado es el módulo concreto, que sólo usa APIs del actor. Publicar una interfaz de extensiones no debe conceder esas credenciales ni acceso directo a tablas core.
+
+## Prohibición de convertibilidad y frontera fiscal
+
+La unidad osTRIS **no es convertible a FIAT por diseño**. El dominio no crea, infiere, persiste ni expone tipo de cambio, paridad EUR/osTRIS, valor de rescate, peg, cotización de unidad ni conversión automática. Las patas y comisiones osTRIS y FIAT se calculan, ejecutan y muestran por separado.
+
+Una futura obligación legal puede requerir una **valoración fiscal específica de una operación**. Será metadato posterior, con propósito legal definido, método/versionado aprobados, base documental, fecha, moneda, importe y trazabilidad de quien la calculó. No modificará el Agreement aceptado ni el precio original. Dos acuerdos de `40 COMMUNITY_X` pueden recibir valoraciones fiscales distintas sin que el sistema infiera el valor de una unidad. Esa valoración no alimentará Community Value References, CreditPolicy osTRIS, precios del marketplace, conversión ni rescate. Las Community Value References tampoco se convertirán automáticamente en valoración fiscal.
+
+Una valoración destinada a reporting DAC7, si resulta aplicable, **no representa por sí misma la renta imponible del vendedor ni el impuesto a pagar**. Tampoco es una liquidación fiscal del usuario. La calificación, base imponible, gastos, exenciones y obligaciones concretas pertenecen al análisis legal/fiscal aplicable, fuera de este MVP.
+
+Los datos inmutables conservados para un futuro módulo `Compliance / Reporting` son: términos originales y digest, snapshot/digest STIR, participantes y tenant, importes/unidades/divisas de cada pata, eventos de ejecución y referencias/evidencia de proveedor, comisiones y sus eventos. Retención, acceso y minimización de esos datos deberán definirse antes de una operación real. La metodología correcta para valorar contraprestación mutual-credit no convertible, incluida cualquier obligación DAC7 aplicable, es un **LEGAL/TAX SPEC GAP que requiere validación externa**. No se implementa un algoritmo ni se presupone que la responsabilidad fiscal del usuario extinga las obligaciones de la plataforma.
+
+## Actualización y criterio de evidencia
+
+La composición debe fijar revisiones STIR y del módulo por separado. Un ensayo A→B válido conserva los mismos volúmenes/datos y compara listing, negotiation, accepted Offer, Agreement/snapshot, registro de extensión, configuración de pago, estados/evidencia FIAT y enlace osTRIS. Debe usar dos revisiones realmente diferentes de STIR y comprobar lectura y operaciones posteriores; una reconstrucción sin cambiar revisión no cuenta.
+
+El experimento no se declara completo por pasar tests unitarios. Registrar por separado: contrato Java + migración PostgreSQL, flujo API real con dos usuarios, transacción osTRIS realmente COMMITTED, fee osTRIS separado, UI en navegador y upgrade A→B. Cualquier fila sin evidencia permanece pendiente en `VALIDATION_COMMUNITY_EXTENSION.md`.
+
+`V13__external_contract_commitment.sql` es provisional en el worktree aislado. Claude Code tiene migraciones V11/V12 en otro checkout: antes de integrar, rebasar el cambio sobre su baseline y asignar la siguiente versión libre para no producir una secuencia Flyway incompatible. No ejecutar la migración provisional en una base compartida con el trabajo activo.

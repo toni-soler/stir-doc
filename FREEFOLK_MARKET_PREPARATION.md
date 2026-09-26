@@ -1,5 +1,11 @@
 # FreeFolk Market — preparación sobre STIR
 
+**Corrección del primer dominio propio:** el [Mixed Consideration Extension Proof](MIXED_CONSIDERATION_EXTENSION.md) usa ofertas osTRIS, FIAT o MIXED para probar extensibilidad profunda. Una pata FIAT y otra osTRIS no establecen paridad, convertibilidad ni cotización de unidad. Las comisiones de cada medio son obligaciones separadas. La posible valoración fiscal futura será por operación y propósito legal; su metodología es un `LEGAL/TAX SPEC GAP`, no una tasa de conversión. Este experimento sustituye la antigua suposición de que todavía no se había confirmado una primera regla económica de FreeFolk; no es producción FFM.
+
+Una eventual valoración de reporting DAC7 tampoco debe presentarse como renta imponible del vendedor ni como impuesto adeudado.
+
+El experimento ya ha publicado y negociado las tres modalidades con APIs reales, ha confirmado el EXCHANGE osTRIS del precio y un SETTLEMENT de comisión independiente, y ha conservado los mismos datos durante un cambio de STIR A→B. El FIAT proviene únicamente de un adaptador de prueba. Estos resultados validan una dirección arquitectónica, no habilitan pagos reales ni un piloto FFM; véase [la evidencia y sus límites](VALIDATION_COMMUNITY_EXTENSION.md).
+
 Estado: propuesta, 2026-09-26. Depende de [la guía genérica de extensión](COMMUNITY_EXTENSION_GUIDE.md). No crea todavía un módulo, un fork, una instancia pública ni una nueva autoridad económica.
 
 Primer incremento técnico: STIR dispone de una entrada ESM de catálogo y una segunda presentación de ejemplo que la consume; véase `stir-frontend/examples/community-catalog/README.md`. Ya se comprobó la carga en Shell y lectura real del catálogo. La fase 1 de producto no se declara cerrada hasta publicar una release compatible y concretar el primer uso de FreeFolk.
@@ -74,6 +80,4 @@ No se ha enviado ningún mensaje a Claude Code ni creado una tarea remota. Estos
 
 ## Evidencia de esta preparación
 
-Cambios exclusivamente en el repositorio `stir-doc`: esta hoja de preparación, la guía genérica y su enlace desde README. Inspeccionados código frontend/API, branding backend, cliente osTRIS, manifest/proxy/pins de composición y contrato DevKit.
-
-Sin cambios de generador, regeneración, migraciones, contratos runtime o repos Java/.NET. Sin builds ni ejecución de servicios: no se afirma compatibilidad operativa nueva. La validación de esta entrega se limita a revisión documental, enlaces locales y whitespace; la implementación y el ensayo real de upgrade siguen pendientes.
+La preparación documental inicial se limitó a `stir-doc` e inspección de código, sin builds ni migraciones. El incremento Mixed Consideration posterior reside en ramas aisladas de `stir-backend` y en un repositorio experimental externo; sus cambios y ejecución constan en [la validación](VALIDATION_COMMUNITY_EXTENSION.md). No hubo generador ni código Java/.NET de IDAX afectado.

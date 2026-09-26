@@ -1,5 +1,9 @@
 # Extender STIR para comunidades e instancias independientes
 
+El [experimento de contraprestación mixta](MIXED_CONSIDERATION_EXTENSION.md) prueba el límite de esta guía con una obligación FIAT externa y una osTRIS existente. Distingue el contrato genérico candidato para STIR del dominio específico que permanece en la distribución, así como las pruebas y SPEC GAP aún pendientes.
+
+Para dominios económicos externos, el único contrato upstream propuesto es un **compromiso opaco** por Offer (`externalContractNamespace` + `externalContractDigest`) congelado en el snapshot del Agreement. La extensión conserva y verifica sus términos inmutables, ejecuta sólo por APIs autenticadas bajo el actor/tenant y almacena su propio estado; el compromiso no concede permiso para escribir tablas STIR/osTRIS ni declara atomicidad entre proveedores. STIR no interpreta FIAT, comisiones ni políticas de distribución. La valoración fiscal futura, si procede, será metadato por operación y finalidad legal, sin paridad ni convertibilidad de unidades osTRIS; ninguna cifra DAC7 se presentará como renta imponible o impuesto debido del vendedor.
+
 Estado: **propuesta de arquitectura**, 2026-09-26. No declara un SDK nuevo disponible ni autoriza cambios de protocolo. Primer consumidor previsto: [FreeFolk Market](FREEFOLK_MARKET_PREPARATION.md).
 
 **Incremento en curso:** `stir-frontend` contiene una entrada pública de catálogo en `src/catalog-client.js`, compilada como `dist/community/stir-catalog.mjs`, y una segunda presentación de ejemplo en `examples/community-catalog/`. El contrato cubre catálogo, fotos y oferta. Ya se ensayó una actualización entre dos commits; faltan un SDK de componentes, una release etiquetada y la matriz de versiones publicadas.

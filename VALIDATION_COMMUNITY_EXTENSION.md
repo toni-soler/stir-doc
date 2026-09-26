@@ -1,5 +1,26 @@
 # Validation: primer consumidor comunitario del catálogo
 
+## Mixed Consideration Extension Proof (2026-09-26)
+
+Ramas aisladas: `stir-backend: codex/mixed-consideration-contract`, `stir-doc: codex/mixed-consideration-docs` y repositorio experimental `ffm-mixed-proof: codex/mixed-consideration-proof`. El checkout activo de Claude Code no se ha modificado.
+
+La revisión genérica A de STIR es `223f294`: Offer y Agreement guardan namespace/digest externos opacos, con migración PostgreSQL V13 **provisional**. La revisión B es `43dfd2e`: añade el mismo compromiso a la vista de detalle del snapshot, sin alterar el contrato previo. El módulo FFM experimental se sirve por Shell desde otro repositorio y otra imagen; STIR y osTRIS no importan ese módulo. La imagen FFM final usada en el ensayo A→B fue `sha256:18526915b89478adb5197a1d07dcce0552634e50db06a68a993f839288ac0add` y no se reconstruyó entre A y B.
+
+| Comprobación de Mixed Consideration | Resultado |
+|---|---|
+| `mvn test -q` en STIR A y `mvn -q -Dtest=ExternalContractCommitmentTest test` en B | PASS; contrato genérico y snapshot. |
+| `npm test` en módulo FFM | PASS: 7 pruebas; tres modalidades, contraoferta/digest, fees separados, resultados FIAT y `SETTLEMENT` osTRIS independiente. El adaptador unitario no sustituye la prueba real. |
+| Compose aislado `ffm-proof` con STIR B | PASS: tres listings, negociaciones y Agreements reales en tenant sintético; FIAT 70 EUR/fee 3,50 EUR simulados por `TEST_PAYMENT_PROVIDER`; EXCHANGE real de 30 unidades y SETTLEMENT real separado de 1,50 unidades en osTRIS, ambos firmados y `COMMITTED`. La comisión no reduce el precio original. |
+| Aislamiento | PASS: acceso cruzado desde otro tenant rechazado por API STIR/FFM; la cuenta de plataforma se registró con permiso de gestión del tenant y las firmas osTRIS provinieron de claves distintas. |
+| Frontend propio en Shell | PASS: Playwright/Edge mostró el Agreement mixto real, desglose de precio y fees, y estados de ejecución en una UI externa de diseño propio. |
+| Actualización STIR A→B con datos persistentes | PASS: los mismos listings, negociaciones, Agreements, estado FIAT, cuenta de pago sintética, EXCHANGE y SETTLEMENT osTRIS se releyeron antes y después de sustituir sólo la imagen STIR. No se reconstruyó FFM ni se migró manualmente un fork. Ambas revisiones son commits locales, no releases publicadas. |
+
+La prueba utiliza `scripts/e2e.py setup|verify` y `scripts/browser.py` del repositorio experimental `stir/.local/ffm-mixed-proof`; el proyecto Compose y sus volúmenes son exclusivos de la prueba. Se usó el puerto publicado `18096` para STIR del ensayo porque `8096` estaba ocupado por otra instancia, que no se detuvo. Los datos son sintéticos y el PSP sólo simula evidencias: no hay dinero FIAT real, callback firmado, vault, RLS SQL ni garantías de transacción/idempotencia productivas en la extensión. Tampoco hay valoración fiscal implementada.
+
+Al terminar se eliminó el marcador ignorado que contenía contraseñas temporales y se detuvo `ffm-proof` con `docker compose down` sin `-v`; los volúmenes de ensayo quedaron preservados. La instancia `stir-dev` que ocupaba `8096` siguió funcionando y no fue modificada.
+
+La corrección arquitectónica de no convertibilidad figura en [Mixed Consideration](MIXED_CONSIDERATION_EXTENSION.md). No hay campos de paridad ni conversión. La valoración fiscal por operación permanece como `LEGAL/TAX SPEC GAP`; una eventual valoración DAC7 no debe presentarse como renta imponible del vendedor ni impuesto debido.
+
 Fecha: 2026-09-26. Alcance: `stir-frontend`, con composición temporal local bajo `stir-main/.local/community-e2e/` (ignorada por Git). No se cambió el backend ni ningún contrato de osTRIS/Ledger.
 
 ## Cambio comprobado

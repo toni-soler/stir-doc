@@ -6,7 +6,7 @@ Una eventual valoración de reporting DAC7 tampoco debe presentarse como renta i
 
 El experimento ya ha publicado y negociado las tres modalidades con APIs reales, ha confirmado el EXCHANGE osTRIS del precio y un SETTLEMENT de comisión independiente, y ha conservado los mismos datos durante un cambio de STIR A→B. El FIAT proviene únicamente de un adaptador de prueba. Estos resultados validan una dirección arquitectónica, no habilitan pagos reales ni un piloto FFM; véase [la evidencia y sus límites](VALIDATION_COMMUNITY_EXTENSION.md).
 
-Estado: propuesta, 2026-09-26. Depende de [la guía genérica de extensión](COMMUNITY_EXTENSION_GUIDE.md). No crea todavía un módulo, un fork, una instancia pública ni una nueva autoridad económica.
+Estado: propuesta, 2026-09-26; la fase 1 (reutilización de STIR) está cerrada tras el Community Extension Integration MVP - ver [la guía genérica de extensión](COMMUNITY_EXTENSION_GUIDE.md). Las fases 2 y 3 (dominio propio, piloto) no han empezado. No crea todavía un módulo, un fork, una instancia pública ni una nueva autoridad económica.
 
 Primer incremento técnico: STIR dispone de una entrada ESM de catálogo y una segunda presentación de ejemplo que la consume; véase `stir-frontend/examples/community-catalog/README.md`. Ya se comprobó la carga en Shell y lectura real del catálogo. La fase 1 de producto no se declara cerrada hasta publicar una release compatible y concretar el primer uso de FreeFolk.
 
@@ -38,21 +38,21 @@ El módulo FreeFolk no es obligatorio para cambiar de marca. Se creará cuando h
 |---|---|---|
 | Marketplace y EXCHANGE | Implementados según código y documentación local; no revalidados en runtime en esta tarea | Permiten diseñar el primer recorrido reutilizable. |
 | Identity Integrity | Ya hay integración parcial de continuidad y proyección; persisten límites descritos en `PARTICIPANT_INDEPENDENCE.md` | Reutilizar estado/aseguramiento real; nunca anunciar independencia probada por contar cuentas. |
-| Ordinary Governance | Pendiente según el plan comunicado; Seven Keys existente no demuestra que esté terminado | Mantener implementación en STIR; integrar cuando haya contratos y evidencia. |
+| Ordinary Governance | Implementado y en `main` (`ORDINARY_GOVERNANCE.md`): electorado propio de STIR, quorum/mayoría explícitos, ejecución que reutiliza `publishDirect`/`policyDirect` | El electorado nunca se deriva de permisos de plataforma; una comunidad FreeFolk deberá activar su propia gobernanza ordinaria explícitamente, no heredarla. |
 | Consent/Retention | Pendiente según el plan comunicado; no se certifica su cobertura aquí | Definir datos propios y dependencias antes de recogerlos en un piloto real. |
 | Fuentes LISTING/WANTED/SEED | Trabajo pendiente según el plan; un anuncio actual `WANTED` no demuestra una fuente de evidencia implementada | No convertir anuncios en observaciones o referencias por cuenta de FreeFolk. |
 | WebAuthn / hardware custody | No se da por implementado; WebCrypto actual no equivale a custodia hardware | Mantener firma común; no diseñar un signer alternativo ni asumir compatibilidad criptográfica. |
-| Extensibilidad frontend | Bundle único, rutas incrustadas, sin API pública granular | Es el trabajo habilitador inmediato para una UI propia actualizable. |
+| Extensibilidad frontend | `catalog-client.js` (ESM, `CATALOG_CONTRACT_VERSION=1`) cubre catálogo/fotos/oferta; el resto del bundle sigue incrustado en `/stir` | Suficiente para una segunda presentación de catálogo; una UI FreeFolk que necesite otros recorridos (negociación completa, firma, perfil) seguirá enlazando a las pantallas STIR bajo `/stir` hasta que existan sus propios contratos. |
 
 Esta tabla es una dependencia de planificación, no una auditoría completa del roadmap ni del trabajo remoto activo de Claude Code.
 
 ## Tres fases
 
-### 1. Demostrar que STIR se puede reutilizar
+### 1. Demostrar que STIR se puede reutilizar — cerrada
 
-En STIR, implementar el primer recorrido descrito en la guía y una segunda presentación de prueba. Publicar entradas públicas, límites y matriz compatible. Mantener la UI STIR consumiendo el mismo contrato. Esto puede avanzar sin resolver los SPEC GAP económicos o constitucionales.
+El recorrido de catálogo/detalle/oferta se extrajo a `catalog-client.js`, STIR lo usa como primer consumidor, y una segunda presentación de ejemplo lo consume también con ruta y marca propias. Un upgrade real desde una revisión de `main` sin esta capacidad hasta la integrada conservó los datos existentes y añadió la nueva presentación sin migración manual. Ver "Community Extension Integration MVP" en [la validación](VALIDATION_COMMUNITY_EXTENSION.md) para la evidencia completa.
 
-Salida verificable: actualizar una revisión de STIR y demostrar que la segunda presentación conserva su aspecto y recibe el comportamiento común sin copiar código. Una guía o una maqueta por sí solas no completan esta fase.
+Esto avanzó sin resolver los SPEC GAP económicos o constitucionales, como estaba previsto - el compromiso opaco de Mixed Consideration y el SPEC GAP de `purpose` de osTRIS siguen abiertos, documentados en [Mixed Consideration](MIXED_CONSIDERATION_EXTENSION.md).
 
 ### 2. Crear la distribución FreeFolk y su primer dominio propio
 
@@ -72,12 +72,10 @@ Separar pruebas internas con datos sintéticos de actividad real. Antes de abrir
 
 ## Coordinación con la evolución de STIR
 
-Esta propuesta no reordena el trabajo activo de Claude Code. Acordar el punto de extracción frontend antes de modificar los mismos archivos. Cada nueva capacidad genérica permanece en STIR; FreeFolk incorpora su release cuando su matriz y pruebas la admitan.
+La preparación documental y las pruebas en ramas locales aisladas se coordinaron con el trabajo activo de Ordinary Governance sin interrumpirlo; la integración a `main` (fase 1) ocurrió después, en un MVP dedicado. Cada nueva capacidad genérica permanece en STIR; FreeFolk incorpora su release cuando su matriz y pruebas la admitan.
 
 En futuros incrementos STIR, registrar: contrato consumible, permisos/autoridad, estado funcional y errores, traducciones, recorrido UI común, dependencias de versión, migración y pruebas de conformidad. Evitar un segundo framework antes de que la primera extracción pruebe que hace falta.
 
-No se ha enviado ningún mensaje a Claude Code ni creado una tarea remota. Estos documentos son la base revisable para coordinar ese siguiente incremento.
-
 ## Evidencia de esta preparación
 
-La preparación documental inicial se limitó a `stir-doc` e inspección de código, sin builds ni migraciones. El incremento Mixed Consideration posterior reside en ramas aisladas de `stir-backend` y en un repositorio experimental externo; sus cambios y ejecución constan en [la validación](VALIDATION_COMMUNITY_EXTENSION.md). No hubo generador ni código Java/.NET de IDAX afectado.
+La preparación documental inicial se limitó a `stir-doc` e inspección de código, sin builds ni migraciones. El incremento Mixed Consideration posterior residió en ramas aisladas de `stir-backend` y en un repositorio experimental externo (`.local/ffm-mixed-proof`, fuera de los repositorios STIR); sus cambios y ejecución constan en [la validación](VALIDATION_COMMUNITY_EXTENSION.md). La integración final a `main` (catálogo, compromiso opaco, compatibilidad mínima) está documentada en la misma validación, sección "Community Extension Integration MVP". No hubo generador ni código Java/.NET de IDAX afectado en ningún momento.

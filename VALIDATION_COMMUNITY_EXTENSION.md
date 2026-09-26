@@ -67,3 +67,32 @@ La primera revisión frontend fue `6f296e5` (contrato de catálogo), la segunda 
 Las escrituras fueron exclusivamente en tenants nuevos `catalog-e2e-*` de desarrollo. Los scripts reproducibles están en `stir-main/scripts/community_catalog_browser_e2e.py` y `community_catalog_upgrade_e2e.py`; el manifest y proxy opcionales están en `stir-main/examples/community-catalog/`. En este ensayo se usó un override `.local` adicional para apuntar a los worktrees aislados.
 
 Esto prueba una actualización entre **dos commits locales fijados**, no entre dos releases publicadas. Quedan pendientes un tag/release del contrato, una matriz publicada de compatibilidad Shell/STIR, y la extracción de otros recorridos que FreeFolk decida personalizar. La oferta real comprobada crea una negociación STIR; no se probó aquí un commit económico osTRIS.
+
+## Community Extension Integration MVP (2026-09-26)
+
+Fase de inspección e integración prevista tras cerrar Ordinary Governance (`stir-backend 470e2db`, `stir-frontend 28ca133`, `stir-main 8bbac8f`, `stir-doc 87b495f`, `stir-workspace 05dc152`). Objetivo: subir a `main` únicamente las abstracciones genéricas ya demostradas por los incrementos anteriores de este documento, no FreeFolk Market ni Mixed Consideration en sí.
+
+### Inspección
+
+Localizadas todas las ramas Codex/Claude locales relacionadas (ninguna estaba en `origin` de ningún repo). Aplicables: `stir-backend codex/mixed-consideration-contract` (`223f294`,`43dfd2e`), `stir-frontend codex/community-catalog-next` (`6f296e5`,`0b3d9af`), `stir-main codex/community-catalog-e2e` (`b4b28fb`), `stir-doc codex/mixed-consideration-docs` (`837501b`,`7b4ffbb`,`0bddd5b`). Obsoletas: `codex/community-value-references` y `codex/stir-foundation` en los cuatro repos (snapshots muy anteriores, `main` ya muy por delante), `codex/community-value-references-e2e` en `stir-main` (ya fusionada, diff vacío), `claude/community-catalog-consumer-mvp` y `codex/community-extension-next`/`claude/community-extension-guide-mvp` en `stir-doc` (ancestros de las ramas anteriores). Sin conflictos de migración (`V13` seguía libre) ni de seguridad/autorización. Único SPEC GAP real encontrado: `purpose=SETTLEMENT` no está respaldado por `OSTRIS_INTEGRATION.md` - ver [Mixed Consideration](MIXED_CONSIDERATION_EXTENSION.md).
+
+### Integración
+
+Cada rama aplicable se rebasó (cherry-pick, sin conflictos reales) sobre el `main` actual, no sobre su baseline original. Cambios añadidos sobre lo ya descrito arriba: `offerPayload()` reenvía `externalContractNamespace`/`externalContractDigest` cuando una distribución los provee (`stir-frontend`); `GET /api/stir/instance` expone `stirVersion`/`catalogContractVersion`/`externalContractSchemaVersion` (`stir-backend`, `InstanceController`); el rehearsal de upgrade en `stir-main` compara esos tres campos antes/después. `COMMUNITY_EXTENSION_HANDOFF.md` se retiró: era una nota de coordinación puntual dirigida a Claude Code, ya cumplida por esta integración.
+
+| Comprobación | Resultado |
+|---|---|
+| `mvn -q verify` en `stir-backend` (cherry-pick + compatibilidad) | PASS: migraciones V1-V13 aplicadas en 5 corridas Testcontainers independientes, incluidas `ExternalContractCommitmentTest` e `InstanceControllerTest` (nueva). |
+| `npm test`/`build`/`i18n:validate` en `stir-frontend` (cherry-pick + passthrough) | PASS: 40 pruebas, 12 locales/490 claves, build ESM+ambas extensiones. |
+| `docker compose up -d --build` con backend integrado y frontend **anterior a esta integración** (`main` sin catálogo) | PASS: pila completa saludable; confirma que el backend integrado no rompe el frontend previamente publicado. |
+| Fixture real (listing, foto auténtica, negociación) creado por HTTP contra ese frontend anterior | PASS: sin la extensión de catálogo, usando sólo la API estándar de STIR. |
+| **Upgrade real de capacidad**: reconstruir sólo `stir-ui` a la revisión integrada (con `catalog-client.js` + segunda presentación) manteniendo backend/datos | PASS (a): la UI estándar de STIR sigue mostrando la foto y la negociación creadas antes de que el catálogo existiera. PASS (b): la segunda presentación, inexistente antes del upgrade, lee ese mismo anuncio y foto sin ninguna migración de datos. Prueba directa del criterio de éxito: "actualizar STIR no requiere migrar manualmente un fork downstream". |
+| `scripts/community_catalog_browser_e2e.py` y `community_catalog_upgrade_e2e.py` (tal como quedaron committeados) | PASS, incluida la nueva comparación de `stirVersion`/`catalogContractVersion`/`externalContractSchemaVersion` capturada en el marcador. |
+| Regresión: `scripts/smoke.py`, `marketplace_e2e.py`, `economic_exchange_e2e.py`, `ordinary_governance_e2e.py` | PASS: sin regresión en listados, negociación/oferta ni gobernanza ordinaria tras los cambios de `Offer`/`OfferRequest`/`CounterRequest`/`api.js`. |
+| Cierre | Compose `down` sin borrar volúmenes; marcadores temporales locales eliminados; ningún secreto impreso. |
+
+No se ejecutó aquí una matriz completa de los ocho scripts E2E preexistentes (Seven Keys, Market Integrity, Participant Independence, Community Value Governance): la regresión se acotó a las áreas realmente tocadas (negociación/oferta, referencia/gobernanza, instancia pública). Queda como comprobación pendiente antes de una release pública ejecutar la matriz completa.
+
+### Qué subió y qué no
+
+Subió: el compromiso opaco Offer→Agreement (`V13`, sin FIAT/fee/fiscal); el contrato `catalog-client.js` con STIR como primer consumidor y su passthrough opcional del compromiso opaco; el ejemplo de segunda presentación y su composición opt-in; los E2E de catálogo y el rehearsal de upgrade; la declaración mínima de compatibilidad en `GET /api/stir/instance`. No subió: nada de `.local/ffm-mixed-proof` (FIAT, PSP, comisiones, valoración fiscal, `purpose=SETTLEMENT`); ningún framework de plugins ni registro de capacidades más allá de los tres campos de versión; ninguna credencial SQL o de servicio privilegiada expuesta a extensiones; `COMMUNITY_EXTENSION_HANDOFF.md` (nota de coordinación ya cumplida, no documentación permanente).

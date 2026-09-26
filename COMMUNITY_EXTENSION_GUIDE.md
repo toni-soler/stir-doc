@@ -1,16 +1,16 @@
 # Extender STIR para comunidades e instancias independientes
 
-El [experimento de contraprestación mixta](MIXED_CONSIDERATION_EXTENSION.md) prueba el límite de esta guía con una obligación FIAT externa y una osTRIS existente. Distingue el contrato genérico candidato para STIR del dominio específico que permanece en la distribución, así como las pruebas y SPEC GAP aún pendientes.
+El [experimento de contraprestación mixta](MIXED_CONSIDERATION_EXTENSION.md) probó el límite de esta guía con una obligación FIAT externa y una osTRIS existente. Distingue el contrato genérico incorporado a STIR del dominio específico que permanece en la distribución, así como las pruebas y SPEC GAP aún pendientes.
 
-Para dominios económicos externos, el único contrato upstream propuesto es un **compromiso opaco** por Offer (`externalContractNamespace` + `externalContractDigest`) congelado en el snapshot del Agreement. La extensión conserva y verifica sus términos inmutables, ejecuta sólo por APIs autenticadas bajo el actor/tenant y almacena su propio estado; el compromiso no concede permiso para escribir tablas STIR/osTRIS ni declara atomicidad entre proveedores. STIR no interpreta FIAT, comisiones ni políticas de distribución. La valoración fiscal futura, si procede, será metadato por operación y finalidad legal, sin paridad ni convertibilidad de unidades osTRIS; ninguna cifra DAC7 se presentará como renta imponible o impuesto debido del vendedor.
+Para dominios económicos externos, el único contrato upstream es un **compromiso opaco** por Offer (`externalContractNamespace` + `externalContractDigest`) congelado en el snapshot del Agreement (`schemaVersion=3`). La extensión conserva y verifica sus términos inmutables, ejecuta sólo por APIs autenticadas bajo el actor/tenant y almacena su propio estado; el compromiso no concede permiso para escribir tablas STIR/osTRIS ni declara atomicidad entre proveedores. STIR no interpreta FIAT, comisiones ni políticas de distribución. La valoración fiscal futura, si procede, será metadato por operación y finalidad legal, sin paridad ni convertibilidad de unidades osTRIS; ninguna cifra DAC7 se presentará como renta imponible o impuesto debido del vendedor.
 
-Estado: **propuesta de arquitectura**, 2026-09-26. No declara un SDK nuevo disponible ni autoriza cambios de protocolo. Primer consumidor previsto: [FreeFolk Market](FREEFOLK_MARKET_PREPARATION.md).
+Estado: **incorporado a `main`**, 2026-09-26 (Community Extension Integration MVP), tras un incremento previo de preparación documental y prueba en ramas locales aisladas. No declara un SDK de componentes publicado ni un framework de plugins; ver "Contrato frontend" más abajo para lo que existe realmente hoy. Primer consumidor previsto: [FreeFolk Market](FREEFOLK_MARKET_PREPARATION.md), que sigue sin dominio propio.
 
-**Incremento en curso:** `stir-frontend` contiene una entrada pública de catálogo en `src/catalog-client.js`, compilada como `dist/community/stir-catalog.mjs`, y una segunda presentación de ejemplo en `examples/community-catalog/`. El contrato cubre catálogo, fotos y oferta. Ya se ensayó una actualización entre dos commits; faltan un SDK de componentes, una release etiquetada y la matriz de versiones publicadas.
+**Contrato de catálogo (integrado):** `stir-frontend` expone una entrada pública de catálogo en `src/catalog-client.js`, compilada como `dist/community/stir-catalog.mjs`, y una segunda presentación de ejemplo en `examples/community-catalog/`. STIR's own UI (`listing.jsx`, `extension.jsx`) consume ese mismo `createCatalogClient` - es su propio primer consumidor, no una copia paralela. El contrato cubre catálogo, fotos, oferta y un passthrough opcional del compromiso opaco de contraprestación externa (`offerPayload`). `mvn verify`, `npm test`/`build`/`i18n:validate` y los E2E HTTP/navegador enumerados en [la validación](VALIDATION_COMMUNITY_EXTENSION.md) pasan sobre esta integración. Sigue faltando un SDK de componentes, una release etiquetada y una matriz de versiones publicada más allá del campo `stirVersion` descrito abajo.
 
-La [validación del primer consumidor](VALIDATION_COMMUNITY_EXTENSION.md) registra una carga real en Shell y una consulta real a STIR, además de pruebas de UI con fixture para detalle y oferta. El ensayo posterior usa una oferta real y conserva datos al pasar entre dos commits; aún falta repetirlo entre releases publicadas.
+**Compromiso opaco (integrado):** `Offer`/`Agreement` llevan `externalContractNamespace`/`externalContractDigest` opcionales (migración `V13`, ambos NULL por defecto, ambos obligatorios juntos o ninguno). No hay tabla, import ni referencia a FreeFolk en STIR/osTRIS.
 
-El segundo incremento añade fotos autenticadas al mismo cliente y registra una oferta funcional con dos participantes, más un upgrade ensayado entre commits `6f296e5` y `0b3d9af`. El artefacto sigue sin tag/release público ni matriz de versiones publicada. Los detalles y límites están en [la validación](VALIDATION_COMMUNITY_EXTENSION.md).
+**Compatibilidad (integrado, mínimo):** `GET /api/stir/instance` (público, sin autenticar) expone `stirVersion`, `catalogContractVersion` y `externalContractSchemaVersion` - las únicas versiones que STIR realmente hace cumplir hoy. No es un endpoint de capacidades ni promete compatibilidad ilimitada; ver la sección de versionado.
 
 ## Objetivo y decisión propuesta
 
@@ -26,19 +26,21 @@ Separar tres conceptos:
 
 No se establece federación ni se comparten automáticamente usuarios, saldos, identidades, claves o autoridades entre instancias.
 
-## Baseline inspeccionada
+## Baseline inspeccionada e integrada
 
-Revisión local de 2026-09-26: `stir-doc a20bdee`, `stir-backend 381b156`, `stir-frontend 0b980dc`, `stir-main 10875d9`. Los repositorios pueden seguir evolucionando; revalidar antes de implementar. Los paths siguientes son relativos a los repositorios hermanos, no importaciones autorizadas de sus fuentes.
+Revisión que cerró el Community Extension Integration MVP, 2026-09-26 (tras Ordinary Governance en `main`): `stir-doc 87b495f`, `stir-backend 470e2db`, `stir-frontend 28ca133`, `stir-main 8bbac8f`, más los commits de este MVP encima. Los repositorios pueden seguir evolucionando; revalidar antes de extender más. Los paths siguientes son relativos a los repositorios hermanos, no importaciones autorizadas de sus fuentes.
 
 | Evidencia | Existe hoy | Implicación |
 |---|---|---|
-| `stir-backend/.../config/InstanceController.java` | `GET /api/stir/instance`, configuración `stir.instance.*` | Marca básica sin fork; no constituye un sistema de temas completo. |
-| `stir-frontend/src/extension.jsx`, `scripts/build.mjs` | Baseline: un bundle IIFE, SDK global de Shell, registro `stir`, rutas `/stir` incrustadas | La extracción posterior añade un artefacto ESM de catálogo, todavía sin paquete de componentes. |
-| `stir-frontend/src/api.js` | Baseline: clientes sobre `sdk.fetchWithAuth`, tenant explícito | La extracción posterior mueve el catálogo a `catalog-client.js`; el resto sigue interno. |
+| `stir-backend/.../config/InstanceController.java` | `GET /api/stir/instance`, configuración `stir.instance.*`, ahora también `stirVersion`/`catalogContractVersion`/`externalContractSchemaVersion` | Marca básica sin fork, más una declaración de versión mínima y real; no constituye un sistema de temas completo ni un registro de capacidades. |
+| `stir-frontend/src/catalog-client.js`, `scripts/build.mjs` | ESM sin Shell/React/router, `CATALOG_CONTRACT_VERSION=1`; STIR's own `listing.jsx`/`extension.jsx` lo consumen vía `createCatalogClient` | Primer contrato frontend reutilizable real, con STIR como primer consumidor; sigue sin paquete de componentes ni SDK publicado. |
+| `stir-frontend/examples/community-catalog/` | Segunda presentación de ejemplo (ruta y marca propias) que importa `dist/community/stir-catalog.mjs` | Prueba la reutilización sin copiar fuentes internas; no es la UI de FreeFolk. |
+| `stir-backend/.../negotiation/Offer.java`, `V13__external_contract_commitment.sql` | `externalContractNamespace`/`externalContractDigest` opcionales, ambos o ninguno, en el snapshot `schemaVersion=3` | El único contrato upstream para dominios económicos externos; STIR no interpreta su contenido. |
+| `stir-main/examples/community-catalog/`, `scripts/community_catalog_*_e2e.py` | Composición opt-in de ejemplo + E2E HTTP/navegador + rehearsal de upgrade que compara el campo de compatibilidad antes/después | No cambia el manifest ni el proxy por defecto de STIR. |
 | `stir-main/deploy/extensions.json` | Manifest de Shell con extensiones STIR/osTRIS/Ledger | Host genérico disponible; no resuelve automáticamente composición interna de páginas STIR. |
 | `stir-main/upstream.lock.json` | Pins Git de Core runtime, Shell, Ledger y osTRIS | Patrón aprovechable; el lock actual no incorpora FreeFolk ni fija los propios repos STIR. |
 | `stir-main/deploy/Caddyfile` | Proxy por namespaces de API y assets | Punto de composición de servicios sin copiar sus controladores. |
-| `stir-backend/.../economic/OstrisClient.java` | HTTP con bearer del usuario y tenant; sin SQL compartido | Mantener las autoridades y los límites existentes. |
+| `stir-backend/.../economic/OstrisClient.java` | HTTP con bearer del usuario y tenant; sin SQL compartido; sólo envía `purpose=EXCHANGE` | Mantener las autoridades y los límites existentes; ver el SPEC GAP de `purpose` en [Mixed Consideration](MIXED_CONSIDERATION_EXTENSION.md). |
 
 Leer también [Architecture](ARCHITECTURE.md), [Shell compatibility](SHELL_COMPATIBILITY.md), [Public boundary](PUBLIC_SOFTWARE_BOUNDARY.md), [Participant independence](PARTICIPANT_INDEPENDENCE.md) y [Governance threat model](GOVERNANCE_CAPTURE_THREAT_MODEL.md). Algunos párrafos históricos de Architecture/Readiness describen etapas anteriores: no inferir de ellos el estado de una capacidad nueva sin inspeccionar código y validación específicos.
 
@@ -68,7 +70,7 @@ Implementar por extracción incremental, manteniendo STIR como primer consumidor
 2. **Comportamiento reutilizable**: operaciones y estado de listado/negociación/acuerdo, sin navegación ni marca incrustadas. Extraer sólo lo que use una segunda presentación real.
 3. **Componentes/recorridos reutilizables**: entradas públicas pequeñas, props documentadas, estados vacíos/error/carga y traducciones. Mantener dispositivos, firma y gobierno en recorridos comunes hasta disponer de sustituciones verificadas.
 4. **Adaptador de presentación**: rutas y enlaces suministrados por el host, tokens visuales y puntos de composición limitados. Sustituir `/stir` incrustado exige revisar enlaces, notificaciones, redirecciones y deep links, no sólo el router principal.
-5. **Registro explícito de capacidades**: cada release describe ID, versión, requisitos de API/host, rutas, permisos, traducciones, componente predeterminado y posibilidad de sustitución. Es un contrato propuesto; no existe hoy un endpoint de capabilities que se pueda consumir.
+5. **Registro explícito de capacidades**: cada release describe ID, versión, requisitos de API/host, rutas, permisos, traducciones, componente predeterminado y posibilidad de sustitución. Sigue siendo un contrato propuesto y no un endpoint de capabilities completo: lo único que existe hoy es la declaración mínima de versión en `GET /api/stir/instance` (`stirVersion`, `catalogContractVersion`, `externalContractSchemaVersion`), pensada para que una distribución compruebe compatibilidad antes/después de su propia actualización, no para descubrir rutas, permisos o componentes.
 
 La entrada de biblioteca no registrará módulos en `window`, rutas o traducciones por efectos secundarios al importarse. El adaptador Shell realizará ese registro. React, router e i18n seguirán procediendo del host compatible, evitando una segunda copia de React. CSS acotado y traducciones con namespace, conservando cobertura de los 12 locales.
 
@@ -105,15 +107,15 @@ La configuración puede cambiar marca y recorridos, no invariantes constituciona
 
 ## Primera entrega implementable y aceptación
 
-Elegir **un recorrido existente**: catálogo, detalle y navegación hacia negociación. Extraer su contrato frontend en STIR, usarlo también en STIR y demostrar una segunda presentación con ruta y marca distintas. No construir primero una plataforma genérica de plugins.
+El recorrido elegido fue **catálogo, detalle y navegación hacia negociación**: su contrato frontend se extrajo a STIR, STIR lo usa como primer consumidor y una segunda presentación de ejemplo (ruta y marca distintas) lo consume también.
 
-La entrega estará completa cuando:
+Criterios de aceptación y su evidencia:
 
-- Ambas presentaciones consuman el mismo artefacto público y backend sin copiar fuentes internas.
-- Sesión, cambio de tenant, locale, errores, permisos, enlaces y aislamiento funcionen en ambas.
-- Las pruebas detecten un cambio incompatible en una entrada pública o respuesta consumida.
-- Un upgrade real entre dos revisiones fijadas se complete conservando la personalización, con diff y evidencia.
-- `mvn verify` con PostgreSQL/Testcontainers, tests/build/i18n frontend y E2E aplicables pasen; no sustituir E2E por mocks.
-- Una persona o IA pueda reproducirlo con fuentes públicas, Core binario documentado y secretos locales nuevos.
+- Ambas presentaciones consumen el mismo artefacto público y backend sin copiar fuentes internas: `createCatalogClient` en `catalog-client.js`, usado por `listing.jsx`/`extension.jsx` de STIR y por `examples/community-catalog/extension.jsx`.
+- Sesión, cambio de tenant, locale, errores, permisos, enlaces y aislamiento funcionan en ambas: probado en `tests/catalog-client.test.mjs` y en los E2E de `stir-main`.
+- Las pruebas detectan un cambio incompatible en una entrada pública o respuesta consumida: `verify-community-build.mjs` valida los exports públicos y el registro Shell en cada build.
+- Un upgrade real entre dos revisiones fijadas se completó conservando la personalización, con evidencia: ver "Community Extension Integration MVP (2026-09-26)" en [la validación](VALIDATION_COMMUNITY_EXTENSION.md) - incluye tanto el rehearsal original entre dos commits que ya tenían el catálogo como uno nuevo, más exigente, entre la revisión de `main` sin esta capacidad y la integrada, con datos reales creados antes de que el catálogo existiera y leídos después por ambas presentaciones sin ninguna migración manual.
+- `mvn verify` con PostgreSQL/Testcontainers, tests/build/i18n frontend y los E2E HTTP/navegador aplicables pasan; ningún E2E fue sustituido por mocks.
+- Reproducible con fuentes públicas, Core binario documentado y secretos locales nuevos: mismo `python scripts/initialize.py` + `docker compose up -d --build` que el resto de STIR.
 
-Esta guía es preparación documental: ninguno de esos criterios de implementación se declara cumplido aquí.
+Esta entrega se declara **cerrada** para el recorrido de catálogo. El contrato frontend más amplio (componentes/recorridos reutilizables más allá de catálogo, adaptador de presentación genérico, registro de capacidades completo) sigue sin construirse - extraer sólo cuando otra distribución real lo necesite, no por generalización especulativa.

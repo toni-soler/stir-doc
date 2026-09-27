@@ -95,6 +95,12 @@ JCS/SHA-256 digest. A private evidence manifest stores included observation IDs
 and the reason for each excluded input. Exclusion precedence is deterministic:
 FINAL_INTEGRITY_FINDING, CONSENT_WITHDRAWN, SOURCE_NOT_AGREEMENT,
 NO_BILATERAL_CONSENT, OUTSIDE_WINDOW, NOT_COMPARABLE, MISSING_COUNTERPARTY.
+Since the Multi-Source Value Evidence increment
+(`MULTI_SOURCE_VALUE_EVIDENCE.md`), a non-AGREEMENT bucket (LISTING/WANTED)
+uses two general-purpose counterparts to the same idea - `SOURCE_NOT_ELIGIBLE`
+and `NO_CONSENT` - and a new lineage-concentration signal,
+`LINEAGE_CONCENTRATED`, guards against one economic chain (a listing and
+everything that descends from it) counting as several independent voices.
 Since the Consent/Retention increment (`CONSENT_RETENTION.md`), a party can
 withdraw their own consent at any time - this can only ever affect a future,
 not-yet-cached daily cutoff, never a snapshot already computed, and it is a
@@ -256,13 +262,22 @@ fixtures rather than changing a machine clock or backdating real business rows.
 
 Differential privacy/formal disclosure budgets; richer quantity conversions;
 multi-community marketplaces per tenant; publication revocation/supersession
-decisions; imports of listing/wanted/seed evidence; independent context
-anchoring; and extraction into a shared service before a second consumer
-exists. A frontend policy editor (window/minimums/freshness, inside
-constitutional floors) shipped with Community Value Governance; still
-deferred is any UI for the protected constitutional fields themselves - those
-remain reachable only through a signed 7-of-7 Seven Keys amendment.
-Voting/quorum shipped with Ordinary Governance (`ORDINARY_GOVERNANCE.md`).
+decisions; independent context anchoring; and extraction into a shared
+service before a second consumer exists. A frontend policy editor
+(window/minimums/freshness, inside constitutional floors) shipped with
+Community Value Governance; still deferred is any UI for the protected
+constitutional fields themselves - those remain reachable only through a
+signed 7-of-7 Seven Keys amendment. Voting/quorum shipped with Ordinary
+Governance (`ORDINARY_GOVERNANCE.md`).
+
+**LISTING/WANTED/COMMUNITY_SEED evidence shipped** with the Multi-Source
+Value Evidence increment (`MULTI_SOURCE_VALUE_EVIDENCE.md`): a listing's own
+indicative price and a community's governed initial orientation are now real,
+separately labeled evidence sources - never blended into the AGREEMENT
+median, and never counted as more independent voices than the economic
+chains they actually represent. Still deferred: an automatic seed-
+supersession rule (an open SPEC GAP, not a silently assumed default), and a
+generic evidence-source contract for extensions.
 
 **Consent withdrawal and retention shipped** with the Consent/Retention
 increment (`CONSENT_RETENTION.md`): purpose-specific per-party consent,

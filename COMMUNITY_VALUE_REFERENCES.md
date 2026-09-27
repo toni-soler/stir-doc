@@ -93,8 +93,16 @@ Each immutable snapshot contains the exact UTC window, method, filters, effectiv
 policy identity/version and thresholds, state, reasons, descriptive fields and a
 JCS/SHA-256 digest. A private evidence manifest stores included observation IDs
 and the reason for each excluded input. Exclusion precedence is deterministic:
-SOURCE_NOT_AGREEMENT, NO_BILATERAL_CONSENT, OUTSIDE_WINDOW, NOT_COMPARABLE,
-MISSING_COUNTERPARTY. Since the Community Value Governance increment, this
+FINAL_INTEGRITY_FINDING, CONSENT_WITHDRAWN, SOURCE_NOT_AGREEMENT,
+NO_BILATERAL_CONSENT, OUTSIDE_WINDOW, NOT_COMPARABLE, MISSING_COUNTERPARTY.
+Since the Consent/Retention increment (`CONSENT_RETENTION.md`), a party can
+withdraw their own consent at any time - this can only ever affect a future,
+not-yet-cached daily cutoff, never a snapshot already computed, and it is a
+separate reason (`CONSENT_WITHDRAWN`) from never having consented in the first
+place. That same increment also gives `reference_observation` its one real,
+audited deletion-lifecycle action: anonymization, once a versioned retention
+window has elapsed and no market-integrity case holds it. Since the Community
+Value Governance increment, this
 manifest is reachable at `GET .../references/{id}/evidence-manifest`, and the
 underlying raw rows (including `participant_a`/`participant_b`) at
 `GET .../references/{id}/observations` - both gated on `stir.references.publish`,
@@ -246,15 +254,23 @@ fixtures rather than changing a machine clock or backdating real business rows.
 
 ## Deliberately deferred
 
-Differential privacy/formal disclosure budgets; consent withdrawal/retention
-workflow; richer quantity conversions; multi-community marketplaces per
-tenant; voting/quorum; publication revocation/supersession decisions;
-imports of listing/wanted/seed evidence; independent context anchoring; and
-extraction into a shared service before a second consumer exists. A frontend
-policy editor (window/minimums/freshness, inside constitutional floors)
-shipped with Community Value Governance; still deferred is any UI for the
-protected constitutional fields themselves - those remain reachable only
-through a signed 7-of-7 Seven Keys amendment.
+Differential privacy/formal disclosure budgets; richer quantity conversions;
+multi-community marketplaces per tenant; publication revocation/supersession
+decisions; imports of listing/wanted/seed evidence; independent context
+anchoring; and extraction into a shared service before a second consumer
+exists. A frontend policy editor (window/minimums/freshness, inside
+constitutional floors) shipped with Community Value Governance; still
+deferred is any UI for the protected constitutional fields themselves - those
+remain reachable only through a signed 7-of-7 Seven Keys amendment.
+Voting/quorum shipped with Ordinary Governance (`ORDINARY_GOVERNANCE.md`).
+
+**Consent withdrawal and retention shipped** with the Consent/Retention
+increment (`CONSENT_RETENTION.md`): purpose-specific per-party consent,
+self-service withdrawal, a versioned retention policy, and the one real
+anonymization action - all without rewriting any Agreement, observation, or
+already-published reference. Still deferred: attachment/photo retention, and
+any shared consent/retention primitive for extension-owned data
+(`COMMUNITY_EXTENSION_GUIDE.md`).
 
 **Verified related-account grouping and independent-person counts shipped**
 with the Participant Independence increment

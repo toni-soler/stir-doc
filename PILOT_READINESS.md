@@ -4,15 +4,15 @@
 
 **Alcance del dictamen histórico:** código y migraciones de los cinco `main` locales antes del HIGH remediation gate, pins vendorizados y sondas públicas limitadas a `https://dev.stir.es`. El SSH a VM DEV quedó disponible el 28-09-2026 y permitió confirmar los mismos cinco HEAD y contenedores principales; `stir-main` tenía `.venv/` no versionado. El usuario congeló la auditoría VM antes de crear fixtures o modificarla. No se atribuye a la VM el estado V17 ni las correcciones locales: sigue en V16 hasta una actualización controlada. Tenant A/B, backup/restore y navegador autenticado en VM siguen inconclusos.
 
-**HIGH remediation gate local:** `AUD-004`, `AUD-006` y `AUD-010` están `FOUND → FIXED → REVALIDATED` en ramas aisladas. PostgreSQL 17.11: V1→V17 limpio, V16→V17 con datos previos, DML de `idax_admin` denegado en todas las tablas STIR, intentos directos de constitución y FINAL rechazados por el rol real. Backend: 224 tests, 0 fallos. E2E Docker aislado con osTRIS real: retry tras 503/timeout, respuesta perdida tras commit, journal único, 422 de crédito sin movimiento y estado pendiente. Ordinary Governance, Market Integrity, Seven Keys, WebAuthn y Consent/Retention HTTP E2E pasan en tenants de auditoría. **Aún no es un nuevo dictamen de piloto**: faltan integración `main`, actualización/validación VM y el resto de fases. El trust boundary de propietario/superuser PostgreSQL y credencial privada `idax_app` está descrito en `FULL_SYSTEM_AUDIT.md`.
+**HIGH remediation gate local:** `AUD-004`, `AUD-006` y `AUD-010` están `FOUND → FIXED → REVALIDATED` e integrados por fast-forward en `stir-backend/main` (`ea48c08`) y `stir-main/main` (`ee4ef11`). PostgreSQL 17.11: V1→V17 limpio, V16→V17 con datos previos, DML de `idax_admin` denegado en todas las tablas STIR, intentos directos de constitución y FINAL rechazados por el rol real. Backend: 224 tests, 0 fallos. E2E Docker aislado con osTRIS real: retry tras 503/timeout, respuesta perdida tras commit, journal único, 422 de crédito sin movimiento y estado pendiente. Ordinary Governance, Market Integrity, Seven Keys, WebAuthn y Consent/Retention HTTP E2E pasan en tenants de auditoría. **Aún no es un nuevo dictamen de piloto**: faltan actualización/validación VM y el resto de fases. El trust boundary de propietario/superuser PostgreSQL y credencial privada `idax_app` está descrito en `FULL_SYSTEM_AUDIT.md`.
 
 | Control | Evidencia actual | Estado |
 |---|---|---|
 | Baseline cinco repos STIR PC | HEAD/branch/status/remote registrados en `FULL_SYSTEM_AUDIT.md` | VERIFICADO en PC |
 | Baseline VM y pins reales | SSH `devstires` y cinco HEAD coincidentes; `stir-main/.venv/` no versionado; contenedores/digests iniciales registrados | PARCIAL; VM pausada por usuario |
 | Clean PostgreSQL V1–V16 + backend | Testcontainers PostgreSQL 17.11; 216 tests PASS | VERIFICADO localmente |
-| Autorización de rol DB comunitario | PRE-FIX: inserts admitidos; POST-FIX V17: cero tablas STIR con DML `idax_admin`, dos INSERT directos denegados | REVALIDATED local; main/VM pendientes |
-| Commit económico ante osTRIS | PRE-FIX: 503/firmas incompletas causan `REJECTED`; POST-FIX: pendientes/retry y journal único tras fallos controlados | REVALIDATED local; main/VM pendientes |
+| Autorización de rol DB comunitario | PRE-FIX: inserts admitidos; POST-FIX V17: cero tablas STIR con DML `idax_admin`, dos INSERT directos denegados | REVALIDATED local/main; VM pendiente |
+| Commit económico ante osTRIS | PRE-FIX: 503/firmas incompletas causan `REJECTED`; POST-FIX: pendientes/retry y journal único tras fallos controlados | REVALIDATED local/main; VM pendiente |
 | Tenant A/B y SuperAdmin HTTP/DB VM | fixtures y credenciales pendientes | NOT RUN |
 | osTRIS económico, no-FX, extensión externa | E2E económico real local y auditoría parcial de contrato; no-FX estático | PARCIAL; VM/extensión pendientes |
 | WebAuthn en VM, virtual y hardware manual | HTTP E2E local pasa replay/tenant/comunidad/rotación/6-of-7; navegador/hardware VM pendiente | PARCIAL |
@@ -51,5 +51,5 @@ No hay score ni porcentaje. La tabla distingue pruebas realizadas de las pendien
 | 15. ¿Migraciones de DB limpia? | PASS local Testcontainers PostgreSQL 17.11 para STIR V1–V17 y stack Docker local; VM pendiente. |
 | 16–17. ¿Reinicio/restore? | NOT RUN en VM. Restore debe usar DB y volúmenes separados. |
 | 18. ¿HTTPS/browser VM? | Login público y health GET cargan; sesión y recorridos E2E NOT RUN. |
-| 19. ¿Gaps bloqueantes? | Los tres HIGH fueron corregidos y revalidados localmente, no desplegados/medidos en VM; `AUD-007` recovery controller conserva impacto HIGH para piloto. |
+| 19. ¿Gaps bloqueantes? | Los tres HIGH fueron corregidos/revalidados e integrados localmente, no desplegados/medidos en VM; `AUD-007` recovery controller conserva impacto HIGH para piloto. |
 | 20. ¿Riesgos aceptables? | Aún no aceptados formalmente: `AUD-001`, `AUD-002`, `AUD-003`, `AUD-009` y cobertura pendiente. |

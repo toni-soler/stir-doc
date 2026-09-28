@@ -2,14 +2,14 @@
 
 **Dictamen del baseline `main` auditado: NOT PILOT READY.** Hay tres findings HIGH abiertos en `main`: el rol SQL administrativo puede insertar constitución no firmada (`AUD-004`), fabricar un FINAL de Market Integrity (`AUD-006`) y STIR vuelve terminal un commit osTRIS pendiente ante 503 o firmas incompletas (`AUD-010`). Los dos primeros vulneran el límite de autoridad comunitaria/constitucional en la base y el tercero la integridad del estado económico. Según los criterios de esta auditoría, cualquiera impide PILOT READY mientras siga abierto.
 
-**Alcance del dictamen histórico:** código y migraciones de los cinco `main` locales antes del HIGH remediation gate, pins vendorizados y sondas públicas limitadas a `https://dev.stir.es`. El SSH a VM DEV quedó disponible el 28-09-2026 y permitió confirmar los mismos cinco HEAD y contenedores principales; `stir-main` tenía `.venv/` no versionado. El usuario congeló la auditoría VM antes de crear fixtures o modificarla. No se atribuye a la VM el estado V17 ni las correcciones locales: sigue en V16 hasta una actualización controlada. Tenant A/B, backup/restore y navegador autenticado en VM siguen inconclusos.
+**Alcance del dictamen histórico:** código y migraciones de los cinco `main` locales antes del HIGH remediation gate. Tras cerrar el gate, el acceso SSH a DEV permitió confirmar los mismos cinco HEAD, el despliegue V16 y el rol `idax_admin` todavía con permisos PRE-FIX. Se creó un checkpoint de PostgreSQL y objetos, legible pero aún sin prueba de restore. `stir-main` contiene `.venv/` no versionado cuya procedencia está pendiente; por ello no se han modificado repositorios ni actualizado el stack VM. No se atribuye a la VM el estado V17 ni las correcciones locales. Tenant A/B, restore y navegador autenticado en VM siguen inconclusos.
 
 **HIGH remediation gate local:** `AUD-004`, `AUD-006` y `AUD-010` están `FOUND → FIXED → REVALIDATED` e integrados por fast-forward en `stir-backend/main` (`ea48c08`) y `stir-main/main` (`ee4ef11`). PostgreSQL 17.11: V1→V17 limpio, V16→V17 con datos previos, DML de `idax_admin` denegado en todas las tablas STIR, intentos directos de constitución y FINAL rechazados por el rol real. Backend: 224 tests, 0 fallos. E2E Docker aislado con osTRIS real: retry tras 503/timeout, respuesta perdida tras commit, journal único, 422 de crédito sin movimiento y estado pendiente. Ordinary Governance, Market Integrity, Seven Keys, WebAuthn y Consent/Retention HTTP E2E pasan en tenants de auditoría. **Aún no es un nuevo dictamen de piloto**: faltan actualización/validación VM y el resto de fases. El trust boundary de propietario/superuser PostgreSQL y credencial privada `idax_app` está descrito en `FULL_SYSTEM_AUDIT.md`.
 
 | Control | Evidencia actual | Estado |
 |---|---|---|
 | Baseline cinco repos STIR PC | HEAD/branch/status/remote registrados en `FULL_SYSTEM_AUDIT.md` | VERIFICADO en PC |
-| Baseline VM y pins reales | SSH `devstires` y cinco HEAD coincidentes; `stir-main/.venv/` no versionado; contenedores/digests iniciales registrados | PARCIAL; VM pausada por usuario |
+| Baseline VM y pins reales | SSH puerto 12522, cinco HEAD coincidentes, STIR V16, PostgreSQL 17.11, contenedores, imágenes, volúmenes y runtimes registrados; `stir-main/.venv/` no versionado | PARCIAL; checkout VM sin modificar |
 | Clean PostgreSQL V1–V16 + backend | Testcontainers PostgreSQL 17.11; 216 tests PASS | VERIFICADO localmente |
 | Autorización de rol DB comunitario | PRE-FIX: inserts admitidos; POST-FIX V17: cero tablas STIR con DML `idax_admin`, dos INSERT directos denegados | REVALIDATED local/main; VM pendiente |
 | Commit económico ante osTRIS | PRE-FIX: 503/firmas incompletas causan `REJECTED`; POST-FIX: pendientes/retry y journal único tras fallos controlados | REVALIDATED local/main; VM pendiente |
@@ -20,12 +20,12 @@
 | Object storage | digest reproducible pero anterior a releases con fixes (`AUD-009`) | REVISIÓN/RESTORE pendientes |
 | Upgrade desde versión anterior con datos | STIR V16→V17 con constitución histórica conservada en PostgreSQL local | PASS acotado; upgrade VM integral pendiente |
 | Reinicios y durabilidad VM | pendiente | NOT RUN |
-| Backup/restore a entorno aislado | procedimiento seguro en `AUDIT_RUNBOOK.md`; ejecución pendiente | NOT RUN |
+| Backup/restore a entorno aislado | checkpoint DEV `20260928T2211Z-pre-v17`: dump y objetos con SHA-256 y lectura de catálogos; restore separado pendiente | BACKUP PASS; RESTORE NOT RUN |
 | Navegador HTTPS real con sesión | login público cargó; sesión no disponible | INCOMPLETO |
 
 ## Condiciones para una nueva evaluación
 
-1. Comparar commits, imágenes, migraciones, grants y RLS en la VM DEV con el baseline local.
+1. Aclarar procedencia de `stir-main/.venv/`, actualizar DEV a los fixes V17 sin tocar ese directorio si procede y repetir grants/RLS/E2E en la VM.
 2. Registrar/corregir/revalidar cada HIGH técnico en rama específica y en upgrade real, sin alterar 7-of-7 ni introducir poderes Guardian.
 3. Completar intentos adversariales `AUDIT-A`/`AUDIT-B`, WebAuthn, osTRIS, extensión, concurrencia e historial en VM.
 4. Demostrar reinicios y restore real en DB/objetos separados; verificar histórico, referencias, Agreements, credenciales públicas y fotos.

@@ -142,8 +142,9 @@ La VM DEV está documentada como `dev.stir.es`, con Nginx Proxy Manager terminan
 - **Evidence:** fallo Surefire dirigido con excepción y línea; `WebAuthnCrypto.publicKeyFromCose()` y manejadores de servicio.
 - **Root cause:** acceso no validado a campos COSE obligatorios, fuera del bloque que traduce errores de parsing.
 - **Recommended remediation:** validar presencia/tipo/longitud de campos COSE antes de construir clave pública, convertir todos los errores de entrada al mismo rechazo tipado y añadir vectores negativos. No ampliar el conjunto de algoritmos ni cambiar la política de attestation.
-- **Status:** FOUND; sin fix.
-- **Regression test:** test dirigido debe pasar con `IllegalArgumentException`; añadir una prueba de servicio/HTTP que demuestre 400 y ausencia de credential persistida.
+- **Status:** FOUND → FIXED en rama backend separada `codex/audit-webauthn-cose` commit `8e4003a` → REVALIDATED localmente. No integrado en `main` ni desplegado en VM.
+- **Post-fix validation:** los vectores negativos de COSE incompleta, tipo incorrecto, coordenada ausente, CBOR truncado y `authData` de tipo incorrecto dan `IllegalArgumentException`; `mvn -q verify` pasó con 220 tests, 0 fallos/errores/omitidos, y V1–V16 desde PostgreSQL limpio. Después se añadió una prueba de servicio dirigida: registro malformado devuelve 400 y no persiste credential, PASS. El test pre-fix en `codex/full-system-audit-repro` commit `14146db` continúa fallando en `main` y preserva la evidencia.
+- **Regression test:** vectores dirigidos y servicio con PostgreSQL pasan; aún falta HTTP real en VM.
 
 ## Cobertura pendiente
 

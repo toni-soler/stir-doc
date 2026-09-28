@@ -38,6 +38,8 @@ Se crearon los volúmenes `stir-audit-restore-20260928-postgres` y `stir-audit-r
 
 El tar de objetos se extrajo en el volumen MinIO aislado y el mismo digest de imagen arrancó con credenciales **sintéticas**, sin reutilizar secretos DEV; `/minio/health/ready` devolvió HTTP 200. El bucket de attachments estaba vacío tanto en el origen como en el restore. Queda pendiente crear fixtures `AUDIT-*` y repetir backup/restore con Agreements, referencias, governance, credential, foto y objeto no vacíos, además de levantar STIR contra esa copia para probar comportamiento. No se declara todavía `recoverability` de piloto.
 
+Sobre la **copia restaurada**, se ejecutó la SQL exacta de `stir-backend/main` `V17__revoke_platform_admin_stir_mutations.sql` dentro de una transacción `psql -1 -v ON_ERROR_STOP=1`: PASS. Tras la migración, el recuento de tablas STIR con cualquier DML de `idax_admin`, incluido grant de columna, fue **0**; `INSERT DEFAULT VALUES` como `idax_admin` contra `market_constitution` y `market_integrity_case_event` devolvió `permission denied`. La base DEV activa sigue en V16. Esta prueba usa SQL directamente y **no** acredita todavía ejecución por Flyway, boot de aplicación ni E2E del despliegue actualizado.
+
 ## Evidencia ejecutada sobre `main` sin modificaciones
 
 - `mvn -q verify` en `stir-backend`: 216 tests, 0 fallos/errores/omitidos. Testcontainers PostgreSQL 17.11 aplicó V1–V16 desde esquema `stir` vacío en varias instancias. Esto no prueba la composición entera ni la base real de VM.

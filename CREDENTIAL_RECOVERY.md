@@ -44,3 +44,18 @@ elect its own replacement by possession of the Guardian credential. A human who
 also holds a separately granted STIR publisher role is not cryptographically
 prevented from using that ordinary role; role separation and real-world
 independence remain community governance duties.
+
+`ROTATE_CREDENTIAL` can move a seat between credential types (same-device
+Ed25519 to WebAuthn/hardware-backed, or between two WebAuthn credentials),
+not only between two same-type credentials - `WEBAUTHN_HARDWARE_CUSTODY.md`
+covers the credential-specific mechanics. The one-suspension-at-a-time rule
+applies regardless of credential type: a second seat cannot be suspended
+while an earlier suspension remains unresolved, so a WebAuthn seat's own
+rotation must complete (or the Guardian must otherwise resolve it) before a
+different seat can be suspended. The incoming credential's key material
+currently must be generated/registered on the same device driving the
+rotation proposal UI - the cross-device paste-a-public-key path this
+document's continuity-evidence model assumes is not yet wired into that
+specific form for a WebAuthn incoming credential (`WEBAUTHN_HARDWARE_CUSTODY.md`'s
+"Known gap"); bootstrap's own cross-device invitation/contribution flow is
+unaffected.

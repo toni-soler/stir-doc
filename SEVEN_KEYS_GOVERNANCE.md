@@ -50,3 +50,11 @@ deliberately no hidden superadmin, master key, balance adjustment, force
 transaction or force reference. Database superusers and a compromised
 application process remain outside this cryptographic threat model; deployment
 controls and independent audit are required for them.
+
+A seat or the Guardian may instead be backed by a real WebAuthn/hardware
+credential (a security key or platform authenticator) rather than the
+same-device Ed25519 test ceremony described above - full design in
+`WEBAUTHN_HARDWARE_CUSTODY.md`. Every signature verification, replay
+rule, threshold and freeze behavior described in this document applies
+identically regardless of which credential type a seat uses; only *how*
+a signature is produced and verified differs.

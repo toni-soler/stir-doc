@@ -848,6 +848,23 @@ python3 scripts/deploy.py           # dev profile (stir-dev project)
 # python3 scripts/deploy.py --prod  # only once .local/production + .env (§12) are set
 ```
 
+**Known, already-fixed issue: MinIO's official images are gone from both `docker.io` and
+`quay.io`.** MinIO Inc. archived the upstream repo (2026-04) and pulled the compiled Community
+Edition binaries from every public registry (`docker.io` 2026-09-11, `quay.io` 2026-09-24) in
+favor of their commercial AIStor product — not a registry migration this time, a full retirement
+of free binary distribution, with no anonymous-login workaround (confirmed: no authentication
+credentials for that repository are publicly available at all). If `docker compose up -d --build`
+fails pulling `minio` with `401 Unauthorized` or `pull access denied`, this is why. Already fixed
+as of `stir-main` commit `077b69d`: `compose.yml`'s `minio` service now pulls `pgsty/minio`
+instead, a maintained AGPLv3 fork of MinIO CE (github.com/pgsty/minio, the Pigsty project) that
+continues building and publishing the same upstream source after the archival, still anonymously
+pullable and confirmed a true drop-in (runs as root by default, `/data` pre-exists in the image,
+matching this compose file's existing `deploy/run-minio.sh` exactly — unlike `bitnamilegacy/minio`,
+also tried and rejected during that investigation: non-root user, no `/data` by default). Pinned by
+digest rather than tag, since this is a third-party rebuild, not the official image. See
+`CHANGELOG.md`'s "MinIO registry dead again" entry for the full investigation. If a fresh checkout
+still references `quay.io/minio/minio`, `git pull`.
+
 RAM/disk consumption: not independently re-measured for this document (no reliable measurement
 tool was run against this exact VM) — do not repeat a specific number here as fact. Watch it
 yourself the first time with `docker stats` (live) and `df -h` (before/after) rather than trusting
@@ -900,7 +917,21 @@ test failure; not chased further since a working equivalent exists.
 
 ## 17. Resuming the in-progress WebAuthn MVP — read this before touching anything
 
-**This is the single most important section for getting back to exactly where work stopped.**
+**Status: COMPLETE, merged to `main` in all four repos** (`stir-backend e127f20`,
+`stir-frontend 9fb2211`, `stir-main bbfbba4`, `stir-doc f85f9f7`), verified on this VM: `mvn verify`
+216/216, `npm test` 45/45 + build + i18n (12 locales, 560 keys), `webauthn_hardware_custody_e2e.py`
+full pass, `webauthn_hardware_custody_browser.py` full pass (real CDP virtual-authenticator
+ceremonies through the rendered UI), `governance_ui_browser.py` regression re-confirmed passing,
+clean `docker compose up -d --build` with every service healthy. Full design in
+`WEBAUTHN_HARDWARE_CUSTODY.md`; the complete list of real bugs found (three backend/script bugs
+plus a four-part regression in a previously-passing browser E2E, every one found only by actually
+running code that had never been executed before) is in
+`VALIDATION_WEBAUTHN_HARDWARE_CUSTODY.md`. The rest of this section is kept as-is below as the
+historical record of how the transfer from the memory-constrained local PC to this VM actually
+happened — useful if the same situation (uncommitted multi-repo work stuck on a machine that can't
+run it) recurs for a future capability.
+
+**This was the single most important section for getting back to exactly where work stopped.**
 
 ### 17.0 What actually stopped it
 

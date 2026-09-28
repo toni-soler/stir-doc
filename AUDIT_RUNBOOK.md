@@ -27,6 +27,7 @@ Checklist manual con authenticator físico en navegador externo: registrar RP ID
 
 1. Crear marker `AUDIT-*` con listing/foto y, si existen fixtures seguros, Agreement, reference, governance e historial WebAuthn público.
 2. Tomar backup de PostgreSQL y objetos, documentando la ventana temporal entre ambos. Comprobar SHA-256 y contenido esperado.
+   Antes del restore en un cluster PostgreSQL vacío, recrear en el cluster **aislado** los roles globales y memberships del origen que referencian las políticas RLS; `pg_dump` de una base no los incluye. Usar credenciales sintéticas nuevas y no copiar passwords DEV. Ejecutar `pg_restore --exit-on-error` para que una política fallida no pase inadvertida.
 3. Levantar una composición/DB/volúmenes/puertos **separados** con credenciales de prueba propias y sin rutas públicas ni callbacks de producción. Restaurar allí el dump y los objetos. Nunca ejecutar `restore.py` sobre el proyecto o volumen original.
 4. Arrancar backend/servicios contra la copia, verificar migraciones, login de auditoría, bytes de la foto, Agreements, referencias, governance, historial y material público WebAuthn. Registrar errores y checksums.
 5. Limpiar exclusivamente la composición aislada tras verificar su nombre/proyecto/paths; conservar el backup original y el informe.

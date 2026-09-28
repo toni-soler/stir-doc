@@ -20,7 +20,7 @@
 | Object storage | digest reproducible pero anterior a releases con fixes (`AUD-009`) | REVISIÓN/RESTORE pendientes |
 | Upgrade desde versión anterior con datos | STIR V16→V17 con constitución histórica conservada en PostgreSQL local | PASS acotado; upgrade VM integral pendiente |
 | Reinicios y durabilidad VM | pendiente | NOT RUN |
-| Backup/restore a entorno aislado | checkpoint DEV `20260928T2211Z-pre-v17`: dump y objetos con SHA-256 y lectura de catálogos; restore separado pendiente | BACKUP PASS; RESTORE NOT RUN |
+| Backup/restore a entorno aislado | checkpoint DEV: primer restore falló sin roles globales; segundo `pg_restore --exit-on-error` pasó tras recrearlos, 48 tablas STIR/216 políticas RLS/26 credentials coinciden; MinIO restaurado da health 200; faltan fixtures no vacíos y boot de STIR contra la copia | PARCIAL; recoverability no demostrada |
 | Navegador HTTPS real con sesión | login público cargó; sesión no disponible | INCOMPLETO |
 
 ## Condiciones para una nueva evaluación

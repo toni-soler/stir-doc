@@ -26,6 +26,10 @@ La VM DEV está documentada como `dev.stir.es`, con Nginx Proxy Manager terminan
 - `npm test` en `stir-frontend`: 45 tests, 0 fallos. `npm run build` y `npm run i18n:validate`: PASS, 12 locales y 560 claves.
 - `python scripts/audit-public.py` en `stir-main`: PASS para 327 ficheros STIR propios. Es una búsqueda acotada, no un escáner completo de secretos/dependencias.
 - HTTPS DEV: certificado aceptado por `curl`, proxy `openresty`, HSTS, CSP, `X-Content-Type-Options`, `X-Frame-Options` presentes. Falta sesión, upload, WebAuthn y recorrido de navegador autenticado.
+- En el navegador integrado, `https://dev.stir.es/` carga la pantalla de login de IDAX Shell sobre HTTPS. El intento de abrir «Explorar la interfaz» dejó el foco en email con validación «Completa este campo» incluso tras recarga; el botón DOM es `type=button` en el pin de Shell, así que la causa queda **inconclusa** y no se atribuye aún a STIR. Ningún flujo autenticado se ha verificado.
+- Sondas anónimas HTTPS: `/api/shell/v1/extensions`, `/api/shell/v1/platform/tenants` y `/actuator/env` devolvieron 403; un listing con tenant UUID nulo devolvió 401. Esto sólo verifica denegación anónima de esas rutas, no autorización entre usuarios ni tenants.
+- Revisión dirigida de la suite existente: `OrdinaryGovernancePostgresTest` cubre snapshot electoral, quorum, voto único, SuperAdmin, stale policy y ejecución doble; `SevenKeysPostgresTest` cubre 7-of-7, replay de firma, freeze, Guardian y RLS; `WebAuthnSevenKeysPostgresTest` cubre replay/cross-proposal/cross-community/cross-tenant y contador. Todas corrieron en el `mvn verify` inicial; su alcance sigue siendo PostgreSQL/Testcontainers y claves simuladas, no ceremonia VM con browser/authenticator.
+- Búsqueda estática en `stir-backend/src/main/java` y migraciones V1–V16 por `fiatValue`, `exchangeRate`, `EUR/OST`, `redemption`, `convertToFiat`, `automatic conversion` y `fiscal valuation`: 0 coincidencias. Es una comprobación acotada del código STIR, no prueba universal de ausencia de paridad en docs, vendor ni runtime.
 
 ## Findings pre-fix
 
@@ -127,6 +131,22 @@ La VM DEV está documentada como `dev.stir.es`, con Nginx Proxy Manager terminan
 - **Status:** FOUND; sin fix.
 - **Regression test:** ceremonia distribuida de rotación/reemplazo con dos dispositivos y rechazo de replay/mixup.
 
+### AUD-008 — MEDIUM — COSE key malformada escapa del rechazo WebAuthn controlado
+
+- **Area:** WebAuthn / parsing de claves públicas COSE.
+- **Invariant:** una entrada WebAuthn malformada debe rechazarse como error de cliente sin escapar como fallo interno del servicio; nunca debe aceptar firma ni consumir estado válido.
+- **Reproduction:** rama aislada `codex/full-system-audit-repro`, `WebAuthnCryptoTest#auditCoseKeyMissingAlgorithmFailsAsClientError`: construir un mapa CBOR válido con `kty=EC2` pero sin campo obligatorio `alg`; llamar `WebAuthnCrypto.publicKeyFromCose()`. `mvn -q -Dtest=WebAuthnCryptoTest#auditCoseKeyMissingAlgorithmFailsAsClientError test` falla: esperaba `IllegalArgumentException` y recibió `NullPointerException` en `WebAuthnCrypto.java:135`. Un test adicional con CBOR truncado sí obtuvo rechazo controlado.
+- **Observed:** `map.get(3L)` devuelve null y se invoca `.longValue()` sin validar presencia/tipo. `WebAuthnCredentialService` y `SevenKeysService` convierten sólo `IllegalArgumentException` en HTTP 400; el NPE escapa de esa frontera. Todavía no se ha medido el código HTTP real en VM.
+- **Expected:** rechazo tipado (`IllegalArgumentException` en el parser, HTTP 400 en la ruta) para mapa incompleto, tipo incorrecto, algoritmo no soportado y claves malformadas.
+- **Impact:** un cliente puede provocar error interno en registro/assertion WebAuthn; el alcance de disponibilidad o filtrado de stack trace requiere ensayo HTTP. No hay evidencia de bypass criptográfico ni de aceptación de credential malformada.
+- **Evidence:** fallo Surefire dirigido con excepción y línea; `WebAuthnCrypto.publicKeyFromCose()` y manejadores de servicio.
+- **Root cause:** acceso no validado a campos COSE obligatorios, fuera del bloque que traduce errores de parsing.
+- **Recommended remediation:** validar presencia/tipo/longitud de campos COSE antes de construir clave pública, convertir todos los errores de entrada al mismo rechazo tipado y añadir vectores negativos. No ampliar el conjunto de algoritmos ni cambiar la política de attestation.
+- **Status:** FOUND; sin fix.
+- **Regression test:** test dirigido debe pasar con `IllegalArgumentException`; añadir una prueba de servicio/HTTP que demuestre 400 y ausencia de credential persistida.
+
 ## Cobertura pendiente
 
 Las fases activas de tenant A/B, SuperAdmin, votos, Seven Keys, WebAuthn virtual, independencia, fuentes/lineage, consent, referencias, extensión, osTRIS, concurrencia, actualización, reinicios, backup/restore en DB separado, MinIO y navegador HTTPS VM **no están aún ejecutadas**. `PILOT_READINESS.md` reservará el dictamen hasta tener evidencia suficiente; ningún PASS local reemplaza estos controles.
+
+`stir-main/scripts/backup_restore_e2e.py` destruye expresamente los dos volúmenes `stir-dev` y no es apto para la VM DEV compartida. `AUDIT_RUNBOOK.md` define el restore aislado requerido. `backup.py` produce primero un `pg_dump` y después un tar del volumen de objetos; bajo escrituras concurrentes esos dos artefactos no constituyen por sí solos un snapshot atómico. Falta ensayo real de consistencia y recuperación antes de puntuar recoverability.

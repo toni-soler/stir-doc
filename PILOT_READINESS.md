@@ -8,6 +8,8 @@
 
 **Dictamen operativo actual: NOT PILOT READY.** `AUD-012` mantiene abierto el límite de autoridad según la formulación estricta del usuario; el despliegue DEV activo aún conserva V16 y los HIGH originales. Este dictamen se revisará sólo tras resolver el límite de `idax_app`, actualizar DEV y completar los ensayos de aislamiento, navegador y recoverability pendientes.
 
+El [estudio de auditoría resistente a manipulación](GOVERNED_STATE_AUDIT_ARCHITECTURE.md) es una propuesta en worktree, no un control desplegado. Su hash chain/verificador/anchor no justifican por sí solos cambiar `AUD-012` ni el dictamen: una historia MI/Ordinary fabricada pero autoconsistente y el consumo antes de verificación siguen siendo riesgos abiertos.
+
 | Control | Evidencia actual | Estado |
 |---|---|---|
 | Baseline cinco repos STIR PC | HEAD/branch/status/remote registrados en `FULL_SYSTEM_AUDIT.md` | VERIFICADO en PC |

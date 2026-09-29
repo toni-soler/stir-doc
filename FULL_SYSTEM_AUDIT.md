@@ -237,6 +237,8 @@ Los dos contenedores de restore de auditoría se detuvieron tras las pruebas; su
 - **Status:** FOUND, abierto. `AUD-004` y `AUD-006` permanecen `REVALIDATED` para el vector concreto `idax_admin`; el HIGH remediation gate **no** se considera completo para el invariante amplio hasta resolver este finding.
 - **Regression test:** con el rol real `idax_app`, ejecutar ambos INSERT directos en DB limpia y actualizada; deben fallar antes de constraints de negocio sin impedir las transiciones legítimas Seven Keys/Market Integrity por API. Ampliar a Reference, Ordinary Governance, Consent/Retention y demás estados gobernados.
 
+**Estudio posterior sin fix:** [GOVERNED_STATE_AUDIT_ARCHITECTURE.md](GOVERNED_STATE_AUDIT_ARCHITECTURE.md) evalúa trigger audit protegido, verificador independiente y anclaje IDAX Ledger. Concluye que mejoran la detección, pero no prueban por sí solos la intención de actores sin firma ni eliminan la ventana antes de consumo. `AUD-012` conserva severidad/status; las [órdenes futuras para Claude Code](CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md) separan implementación y gates sin autorizarlos ahora.
+
 ## Cobertura pendiente
 
 Las fases activas de tenant A/B, SuperAdmin, votos, Seven Keys, WebAuthn virtual, independencia, fuentes/lineage, consent, referencias, extensión, osTRIS, concurrencia, actualización, reinicios y navegador HTTPS VM **no están aún ejecutadas**. Backup/restore en DB y volúmenes separados está parcialmente ejecutado, pero no incluye fixtures con datos de negocio ni arranque de la aplicación restaurada. `PILOT_READINESS.md` reservará el dictamen hasta tener evidencia suficiente; ningún PASS local reemplaza estos controles.

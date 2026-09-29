@@ -4,14 +4,14 @@
 
 **Alcance del dictamen histórico:** código y migraciones de los cinco `main` locales antes del HIGH remediation gate. Tras cerrar el gate, el acceso SSH a DEV permitió confirmar los mismos cinco HEAD, el despliegue V16 y el rol `idax_admin` todavía con permisos PRE-FIX. Se creó un checkpoint de PostgreSQL y objetos, legible pero aún sin prueba de restore. `stir-main` contiene `.venv/` no versionado cuya procedencia está pendiente; por ello no se han modificado repositorios ni actualizado el stack VM. No se atribuye a la VM el estado V17 ni las correcciones locales. Tenant A/B, restore y navegador autenticado en VM siguen inconclusos.
 
-**HIGH remediation gate local:** `AUD-004`, `AUD-006` y `AUD-010` están `FOUND → FIXED → REVALIDATED` e integrados por fast-forward en `stir-backend/main` (`ea48c08`) y `stir-main/main` (`ee4ef11`). PostgreSQL 17.11: V1→V17 limpio, V16→V17 con datos previos, DML de `idax_admin` denegado en todas las tablas STIR, intentos directos de constitución y FINAL rechazados por el rol real. Backend: 224 tests, 0 fallos. E2E Docker aislado con osTRIS real: retry tras 503/timeout, respuesta perdida tras commit, journal único, 422 de crédito sin movimiento y estado pendiente. Ordinary Governance, Market Integrity, Seven Keys, WebAuthn y Consent/Retention HTTP E2E pasan en tenants de auditoría. **Aún no es un nuevo dictamen de piloto**: faltan actualización/validación VM y el resto de fases. El trust boundary de propietario/superuser PostgreSQL y credencial privada `idax_app` está descrito en `FULL_SYSTEM_AUDIT.md`.
+**HIGH remediation gate: reabierto tras prueba adversarial ampliada.** `AUD-004`, `AUD-006` y `AUD-010` están `FOUND → FIXED → REVALIDATED` para sus reproducciones originales e integrados en `stir-backend/main` (`ea48c08`) y `stir-main/main` (`ee4ef11`). PostgreSQL 17.11: V1→V17 limpio, V16→V17 con datos previos, DML de `idax_admin` denegado en todas las tablas STIR. Backend: 224 tests; E2E económico, Ordinary Governance, Market Integrity, Seven Keys, WebAuthn y Consent/Retention pasan localmente. Pero sobre una copia restaurada de DEV, `idax_app` todavía pudo insertar directamente una constitución no autorizada y un FINAL (`AUD-012`, HIGH abierto). No se desplegará V17 al stack DEV activo ni se declarará cerrado el límite de autoridad hasta resolver si ese rol es una credencial privilegiada fuera del alcance o restringir técnicamente sus escrituras gobernadas. Las pruebas usaron `ROLLBACK`; DEV activo sigue en V16.
 
 | Control | Evidencia actual | Estado |
 |---|---|---|
 | Baseline cinco repos STIR PC | HEAD/branch/status/remote registrados en `FULL_SYSTEM_AUDIT.md` | VERIFICADO en PC |
 | Baseline VM y pins reales | SSH puerto 12522, cinco HEAD coincidentes, STIR V16, PostgreSQL 17.11, contenedores, imágenes, volúmenes y runtimes registrados; `stir-main/.venv/` no versionado | PARCIAL; checkout VM sin modificar |
 | Clean PostgreSQL V1–V16 + backend | Testcontainers PostgreSQL 17.11; 216 tests PASS | VERIFICADO localmente |
-| Autorización de rol DB comunitario | PRE-FIX: inserts admitidos; POST-FIX V17: cero tablas STIR con DML `idax_admin`, dos INSERT directos denegados | REVALIDATED local/main; VM pendiente |
+| Autorización de rol DB comunitario | V17: cero tablas STIR con DML `idax_admin`; en copia DEV, `idax_app` todavía insertó constitución y FINAL sin autoridad (`AUD-012`) | HIGH ABIERTO; límite de confianza pendiente |
 | Commit económico ante osTRIS | PRE-FIX: 503/firmas incompletas causan `REJECTED`; POST-FIX: pendientes/retry y journal único tras fallos controlados | REVALIDATED local/main; VM pendiente |
 | Tenant A/B y SuperAdmin HTTP/DB VM | fixtures y credenciales pendientes | NOT RUN |
 | osTRIS económico, no-FX, extensión externa | E2E económico real local y auditoría parcial de contrato; no-FX estático | PARCIAL; VM/extensión pendientes |
@@ -25,7 +25,7 @@
 
 ## Condiciones para una nueva evaluación
 
-1. Aclarar procedencia de `stir-main/.venv/`, actualizar DEV a los fixes V17 sin tocar ese directorio si procede y repetir grants/RLS/E2E en la VM.
+1. Resolver `AUD-012` y aclarar procedencia de `stir-main/.venv/` antes de actualizar DEV; luego repetir grants/RLS/E2E en la VM.
 2. Registrar/corregir/revalidar cada HIGH técnico en rama específica y en upgrade real, sin alterar 7-of-7 ni introducir poderes Guardian.
 3. Completar intentos adversariales `AUDIT-A`/`AUDIT-B`, WebAuthn, osTRIS, extensión, concurrencia e historial en VM.
 4. Demostrar reinicios y restore real en DB/objetos separados; verificar histórico, referencias, Agreements, credenciales públicas y fotos.

@@ -40,6 +40,8 @@ El tar de objetos se extrajo en el volumen MinIO aislado y el mismo digest de im
 
 Sobre la **copia restaurada**, se ejecutó la SQL exacta de `stir-backend/main` `V17__revoke_platform_admin_stir_mutations.sql` dentro de una transacción `psql -1 -v ON_ERROR_STOP=1`: PASS. Tras la migración, el recuento de tablas STIR con cualquier DML de `idax_admin`, incluido grant de columna, fue **0**; `INSERT DEFAULT VALUES` como `idax_admin` contra `market_constitution` y `market_integrity_case_event` devolvió `permission denied`. La base DEV activa sigue en V16. Esta prueba usa SQL directamente y **no** acredita todavía ejecución por Flyway, boot de aplicación ni E2E del despliegue actualizado.
 
+La extensión adversarial del mismo ensayo descubrió un vector **distinto**: `idax_app` conserva `INSERT` y una política RLS sólo vinculada al `tenant_id`; no hay trigger `INSERT` que valide autorización Seven Keys o transición de Market Integrity. En transacciones aisladas con `ROLLBACK`, `SET LOCAL ROLE idax_app` insertó una constitución no autorizada (`INSERT 0 1`) y una cadena sintética de observación/case/evento `FINAL` (`INSERT 0 1` en cada tabla). Se registra como `AUD-012`: la revocación de `idax_admin` es efectiva, pero **el invariante amplio de autoridad persistente no está cerrado** si el rol privado de runtime entra en el alcance. La fase VM activa queda detenida antes de desplegar V17 hasta resolver el límite de confianza y el HIGH residual; ninguna fila de prueba quedó persistida.
+
 ## Evidencia ejecutada sobre `main` sin modificaciones
 
 - `mvn -q verify` en `stir-backend`: 216 tests, 0 fallos/errores/omitidos. Testcontainers PostgreSQL 17.11 aplicó V1–V16 desde esquema `stir` vacío en varias instancias. Esto no prueba la composición entera ni la base real de VM.
@@ -216,6 +218,20 @@ Sobre la **copia restaurada**, se ejecutó la SQL exacta de `stir-backend/main` 
 - **Recommended remediation:** mantener en el runbook el paso de roles globales y verificarlo en cada ensayo de recuperación; automatizarlo sólo después de fijar el contrato operativo.
 - **Status:** FOUND → procedimiento corregido en `AUDIT_RUNBOOK.md` → REVALIDATED para restauración de esquema/datos existentes en contenedor aislado. Persisten pruebas de aplicación y fixtures no vacíos.
 - **Regression test:** repetir restore en cluster vacío con `--exit-on-error`, comparar recuentos de políticas/RLS y estado funcional de entidades con datos.
+
+### AUD-012 — HIGH — `idax_app` puede escribir estado gobernado directamente
+
+- **Area:** autoridad persistente, Seven Keys, Market Integrity y rol de runtime.
+- **Invariant:** ningún rol aplicativo/rutina normal debe poder crear constitución ni FINAL saltándose las autoridades y transiciones definidas; la única excepción asumida explícitamente era el propietario/superuser infraestructural.
+- **Reproduction:** en la copia aislada del dump DEV V16 tras aplicar V17, `has_table_privilege('idax_app',...,'INSERT')` devuelve `true` para `market_constitution` y `market_integrity_case_event`. Dentro de `BEGIN`/`ROLLBACK`, con `app.tenant_id` fijado y `SET LOCAL ROLE idax_app`, `INSERT ... SELECT` sobre una constitución existente produjo `INSERT 0 1` con `version+100000` y digest inventado. En otra transacción, `idax_app` insertó `reference_definition`, `reference_observation`, `market_integrity_case` y directamente un `market_integrity_case_event(status='FINAL',sequence=1)`; los cuatro INSERT dieron `INSERT 0 1` y luego `ROLLBACK`.
+- **Observed:** RLS comprobó sólo tenant; ninguna verificación de 7-of-7, autoridad de decisor, SIGNAL→UNDER_REVIEW→FINAL ni procedencia se ejecutó al insertar. La inmutabilidad por trigger cubre UPDATE/DELETE, no INSERT.
+- **Expected:** si el rol de runtime se considera una rutina normal, la persistencia debe rechazar estas escrituras fuera de servicios/autoridades definidos. Si se pretende que `idax_app` sea una credencial **privilegiada y confiable**, el modelo de amenaza debe declararlo explícitamente y demostrar que ninguna extensión, consola o ruta de usuario puede obtener ejecución SQL bajo ese rol.
+- **Impact:** cualquier acceso SQL como `idax_app` puede fabricar historia constitucional o un FINAL que las lecturas posteriores tratarían como estado válido. Requiere posesión/ejecución bajo la credencial privada de backend; no es un bypass HTTP anónimo demostrado. Cumple el criterio de bloqueo del piloto si el invariante incluye ese rol.
+- **Evidence:** dos transacciones reproducidas y revertidas en `stir-audit-restore-20260928-pg`; V6/V17 de STIR, `pg_policies` y `information_schema.triggers` sobre las dos tablas. La base DEV activa no se modificó.
+- **Root cause:** grants `INSERT` a `idax_app` y RLS exclusivamente de tenant; los checks de autoridad/transición residen en servicios Java, mientras el rol privado de runtime tiene SQL directo. V17 revoca sólo `idax_admin`.
+- **Recommended remediation:** fijar el límite de confianza de `idax_app` antes de diseñar una corrección. Si debe resistir SQL directo bajo ese rol, separar escrituras gobernadas detrás de una autoridad DB específica y verificable, cubrir el patrón en todas las tablas sensibles y añadir regresiones SQL; un GUC que el mismo rol pueda fijar no es una prueba de 7-of-7. No introducir un nuevo protocolo de firma ni poder constitucional durante esta auditoría sin decisión explícita.
+- **Status:** FOUND, abierto. `AUD-004` y `AUD-006` permanecen `REVALIDATED` para el vector concreto `idax_admin`; el HIGH remediation gate **no** se considera completo para el invariante amplio hasta resolver este finding.
+- **Regression test:** con el rol real `idax_app`, ejecutar ambos INSERT directos en DB limpia y actualizada; deben fallar antes de constraints de negocio sin impedir las transiciones legítimas Seven Keys/Market Integrity por API. Ampliar a Reference, Ordinary Governance, Consent/Retention y demás estados gobernados.
 
 ## Cobertura pendiente
 

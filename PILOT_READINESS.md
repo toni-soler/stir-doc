@@ -6,6 +6,8 @@
 
 **HIGH remediation gate: reabierto tras prueba adversarial ampliada.** `AUD-004`, `AUD-006` y `AUD-010` están `FOUND → FIXED → REVALIDATED` para sus reproducciones originales e integrados en `stir-backend/main` (`ea48c08`) y `stir-main/main` (`ee4ef11`). PostgreSQL 17.11: V1→V17 limpio, V16→V17 con datos previos, DML de `idax_admin` denegado en todas las tablas STIR. Backend: 224 tests; E2E económico, Ordinary Governance, Market Integrity, Seven Keys, WebAuthn y Consent/Retention pasan localmente. Pero sobre una copia restaurada de DEV, `idax_app` todavía pudo insertar directamente una constitución no autorizada y un FINAL (`AUD-012`, HIGH abierto). No se desplegará V17 al stack DEV activo ni se declarará cerrado el límite de autoridad hasta resolver si ese rol es una credencial privilegiada fuera del alcance o restringir técnicamente sus escrituras gobernadas. Las pruebas usaron `ROLLBACK`; DEV activo sigue en V16.
 
+**Dictamen operativo actual: NOT PILOT READY.** `AUD-012` mantiene abierto el límite de autoridad según la formulación estricta del usuario; el despliegue DEV activo aún conserva V16 y los HIGH originales. Este dictamen se revisará sólo tras resolver el límite de `idax_app`, actualizar DEV y completar los ensayos de aislamiento, navegador y recoverability pendientes.
+
 | Control | Evidencia actual | Estado |
 |---|---|---|
 | Baseline cinco repos STIR PC | HEAD/branch/status/remote registrados en `FULL_SYSTEM_AUDIT.md` | VERIFICADO en PC |

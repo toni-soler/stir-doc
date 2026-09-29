@@ -1,17 +1,19 @@
 # Tamper-Evident Governed State Audit MVP — Fase 1: validación y checkpoint
 
-Estado: **Fase 1 remediada tras la reauditoría adversarial independiente de Codex
-(`REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, dictamen "FASE 1 REQUIERE REMEDIATION"),
-reentregada para una segunda reauditoría. Fase 2 NO iniciada.** `AUD-012` permanece **HIGH,
-abierto** — sin cambio de severidad, por instrucción explícita: el objetivo nunca fue cerrar
+Estado: **Fase 1 remediada por SEGUNDA vez, tras la segunda reauditoría adversarial independiente de
+Codex (`SECOND_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, dictamen "FASE 1 REQUIERE NUEVA
+REMEDIATION"), reentregada para una TERCERA reauditoría. Fase 2 NO iniciada.** `AUD-012` permanece
+**HIGH, abierto** — sin cambio de severidad, por instrucción explícita: el objetivo nunca fue cerrar
 `AUD-012`. Este documento es el checkpoint solicitado en `CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md` y
-en la orden de remediación posterior: no se ha hecho merge ni push a `main` en ningún repo, no se
-ha desplegado en la VM DEV activa (`stir-dev`), no se implementó external anchor ni consumption
-gate, y no se empezó Fase 2. Todo el trabajo vive en worktrees aislados bajo
-`stir/.local/full-system-audit/slot-01/`. La sección "## Remediación de los 7 findings..." más
-abajo es la parte nueva de este checkpoint; el resto del documento es el checkpoint original de la
-primera entrega, con las secciones que quedaron desactualizadas por la remediación marcadas
-explícitamente como tal en lugar de borradas.
+en las dos órdenes de remediación posteriores: no se ha hecho merge ni push a `main` en ningún repo,
+no se ha desplegado en la VM DEV activa (`stir-dev`), no se implementó external anchor ni
+consumption gate, y no se empezó Fase 2. Todo el trabajo vive en worktrees aislados bajo
+`stir/.local/full-system-audit/slot-01/`. La sección "## Remediación de la segunda reauditoría
+(P1-R2-001, P1-R2-002, ChainVerifier race, alert dedup)" es la parte nueva de ESTE checkpoint; "##
+Remediación de los 7 findings..." es la parte nueva de la entrega ANTERIOR (P1-RA-001...007); el
+resto del documento es el checkpoint original de la primera entrega. Las secciones que quedaron
+desactualizadas por cada ronda de remediación están marcadas explícitamente como tal, nunca
+borradas o reescritas en silencio.
 
 ## Objetivo cumplido, formulado con precisión
 
@@ -250,6 +252,200 @@ JDBC reales, mismo stream, hilos concurrentes genuinos vía `ExecutorService`) y
 `verifierPassRunningConcurrentlyWithWritersMissesNothing` (10 escritores concurrentes + polling del
 verificador corriendo en paralelo, confirmando cero eventos perdidos y cero duplicados en el
 conjunto de veredictos).
+
+## Remediación de la segunda reauditoría (P1-R2-001, P1-R2-002, ChainVerifier race, alert dedup)
+
+Evidencia normativa: `SECOND_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md` (rama documental
+`codex/phase1-second-reaudit`, fecha 2026-09-29), leído en su totalidad. Esta iteración fue
+deliberadamente estrecha: no se rediseñó Fase 1, no se tocaron los fixes ya revalidados de
+P1-RA-001/002/005/006/007 salvo donde se indica explícitamente abajo (P1-RA-006 recibió una mejora
+adicional, P1-RA-007's checkpoint semantics no cambiaron). Cada punto se documenta como
+**FOUND → FIXED → REVALIDATED BY CLAUDE**.
+
+### P1-R2-001 — HIGH — falso CRITICAL en Market Integrity legítimo
+
+**PRE-FIX (Codex):** en `IntegrityRule.java:88-94`, `thisStatus` se leía como el ÚLTIMO estado de
+TODA la historia del caso (`history.get(history.size()-1).status()`), mientras que `decisorId` se
+leía del actor del evento ACTUALMENTE VERIFICADO (`eventRowId`). Para un caso legítimo
+`SIGNAL(originador)→UNDER_REVIEW(decisor)→FINAL(decisor)`, verificar el evento SIGNAL leía
+`thisStatus="FINAL"` (el estado final del caso) pero `decisorId`=actor del SIGNAL=el originador →
+`VIOLATION/DECISOR_EQUALS_ORIGINATOR` falso sobre el propio SIGNAL. El test de la primera
+remediación sólo evaluaba el último evento de forma aislada, nunca el backlog completo, por lo que
+nunca ejercitó este caso.
+
+**FIXED:** `IntegrityRule.evaluate` fue reescrita para evaluar, para cada evento, el PREFIJO
+histórico que termina EXACTAMENTE en la secuencia de ESE evento (`sequence <= thisSequence`), nunca
+la historia completa del caso. `thisStatus`/`thisActorId` se leen directamente de la fila del propio
+evento (una única consulta), nunca derivados de "el último elemento de alguna lista". El check
+`DECISOR_EQUALS_ORIGINATOR` sólo se aplica cuando el estado del PROPIO evento es FINAL/DISMISSED,
+usando el actor del PROPIO evento — nunca el actor de una fila distinta.
+
+**REVALIDATED BY CLAUDE:** `fullBacklogOfLegitimateSignalUnderReviewFinalProducesZeroIncidents`
+reproduce exactamente el caso obligatorio de Codex (SIGNAL(A)→UNDER_REVIEW(B)→FINAL(B), A≠B) y lo
+procesa a través del pipeline de producción real (`VerifierLoop.runOneIncrementalPassForTest`, no
+una llamada directa a la regla sobre un evento elegido a mano) — confirma
+`SIGNAL:PASS_STRUCTURE_ONLY`, `UNDER_REVIEW:PASS_STRUCTURE_ONLY`, `FINAL:PASS_STRUCTURE_ONLY` y
+**cero** `security_incident`. Matriz negativa ampliada:
+`reorderedUnderReviewAfterFinalIsViolation`, `secondTerminalStateAfterFirstIsViolation`,
+`eventAfterDismissedIsViolation`, `decisorEqualsOriginatorOnDismissedIsViolation` (además de las ya
+existentes de la primera remediación: FINAL sin historia, SIGNAL→FINAL directo, UNDER_REVIEW sin
+SIGNAL, gap de secuencia, evento tras FINAL, decisor=originador tras FINAL). Ninguna produce
+`PASS_AUTHORIZED`.
+
+### P1-R2-002 — HIGH en garantía de upgrade — baseline no debe prometer origen legítimo
+
+**PRE-FIX (Codex):** V19 importaba TODAS las claves vivas de una tabla COVERED al momento de aplicar
+V19, sin cotejar si V18 ya llevaba tiempo activo ni si el trigger había tenido oportunidad de ver
+esa fila. Una fila insertada DESPUÉS de V18 (trigger ya activo) pero con el trigger desactivado
+manualmente por `postgres` antes de que V19 corriera fue importada como baseline igual que datos
+legado genuinos — indistinguible. Codex también advirtió que el propio owner puede manipular
+`baseline_import`, por lo que la documentación nunca debe presentar el baseline como prueba
+inequívoca de origen legítimo.
+
+**FIXED — se reescribieron V18 y V19 directamente (no publicadas/desplegadas nunca, ver nota más
+abajo), no una V20 nueva:**
+1. **Semántica corregida explícitamente**, en código y documentación: una fila en `baseline_import`
+   significa *ÚNICAMENTE* que ese (tabla, clave) estaba presente en el momento en que la ceremonia
+   de activación la capturó — nunca prueba de origen legítimo. Formulación exacta, ahora en los
+   comentarios de `Reconciler.java`, `AuditSql.java` y V18 mismo:
+   > Baseline records pre-audit state under an explicit trusted upgrade ceremony; it does not prove
+   > the historical authorization or origin of those rows.
+
+   Equivalente explícito: `LEGACY_UNVERIFIED`. Nunca `VALID`/`AUTHORIZED`/`AUDITED`.
+2. **`baseline_import` y su población se movieron de V19 a V18**, colocadas DENTRO del mismo bucle
+   que crea el trigger de cada tabla `COVERED`. Antes de leer una sola fila de esa tabla, el bucle
+   ejecuta `LOCK TABLE stir.<tabla> IN ACCESS EXCLUSIVE MODE` — PostgreSQL retiene ese lock hasta que
+   la transacción completa de V18 confirma o revierte, así que desde el instante en que el lock se
+   adquiere, ningún `idax_app` puede `INSERT`/`UPDATE`/`DELETE` esa tabla hasta que V18 termine por
+   completo. Esto cierra técnicamente el hueco "quiesce application writers → capture baseline →
+   activate trigger" para el modelo de amenaza runtime ordinario, sin depender de un procedimiento
+   operativo manual.
+3. **Nueva tabla `stir_audit.activation_marker`** (`activation_batch` PK, `activated_at`,
+   `migration_version`), un registro durable y consultable del instante exacto en que "audit
+   protection active" se volvió cierto — el marcador de frontera que pedía el diagrama de la
+   ceremonia. `baseline_import.import_batch` tiene ahora un FK real a esta tabla.
+4. **Explícitamente fuera de alcance, por instrucción directa**: un `postgres`/DB owner/host root que
+   desactiva el trigger y escribe ANTES de que esta ceremonia corra sigue siendo indistinguible de
+   legado genuino — ese actor está fuera del trust boundary de Fase 1 y esta remediación no finge lo
+   contrario en ningún comentario o documento.
+
+**Nota sobre V18/V19 no publicadas:** ninguna de las dos había sido integrada/desplegada en ningún
+entorno antes de este commit, así que se corrigieron directamente en vez de acumular semántica
+correcta sobre una V20. `git log -p` sobre `V18__tamper_evident_governed_state_audit.sql` y
+`V19__governed_state_audit_phase1_remediation.sql` a través de los commits de esta sesión es la
+comparación before/after exacta que pide la orden de remediación — nunca se reescribió en silencio
+el hallazgo PRE-FIX de Codex en ninguno de los dos documentos de reauditoría.
+
+**REVALIDATED BY CLAUDE:** `baselineImportSuppressesLegacyRowsButNotGenuinelyOrphanedOnes` (ya
+existente, sigue pasando sin cambios contra la nueva estructura V18/V19 - upgrade real V17→V19) más
+`v16DataMigratesThroughActivationAsLegacyUnverifiedWithoutFalseCritical` (nuevo, upgrade real
+V16→V19, sin trigger en absoluto en V16 así que no hace falta `session_replication_role`). Ambos
+confirman: datos legado → `LEGACY_UNVERIFIED`, cero CRITICAL; una fila insertada DESPUÉS de la
+ceremonia con el trigger deliberadamente evadido (sólo alcanzable como superusuario) → sigue
+alertando como `LIVE_ROW_WITH_NO_AUDIT_EVENT`. Ningún baseline se convierte jamás en
+`PASS_AUTHORIZED`. `mvn verify` completo del backend confirma que las migraciones V1→V19 siguen
+aplicando limpio de principio a fin con la nueva estructura.
+
+### ChainVerifier — snapshot consistente (carrera pendiente, no numerada P1-RA/P1-R2)
+
+**PRE-FIX (Codex):** `ChainVerifier.reconcileStreamFrom()` leía `stream_head` y `mutation_event` en
+dos llamadas autocommit SEPARADAS (`ChainVerifier.java:74,78` en el código PRE-FIX). Un commit real
+aterrizando entre ambas lecturas podía producir una vista transitoriamente inconsistente (una head
+ya avanzada que la lectura de eventos aún no reflejaba, o viceversa), apareciendo como un falso
+`EXPECTED_EVENT_MISSING`/`STREAM_HEAD_MISMATCH`. 400 escritores concurrentes no lograron reproducir
+la intercalación exacta, pero Codex documentó el hueco como real y no cerrado por prueba.
+
+**FIXED:** nuevo par `AuditSql.beginRepeatableReadSnapshot()`/`endRepeatableReadSnapshot()` — abre
+una transacción `REPEATABLE READ, READ ONLY` que permanece abierta a través de MÚLTIPLES llamadas
+posteriores (a diferencia de `readConsistentTableSnapshot`, que abre/lee/cierra en una sola llamada).
+`ChainVerifier.reconcileStreamFrom` ahora envuelve la lectura de `stream_head` Y la lectura de
+`mutation_event` dentro de ESE mismo snapshot compartido — el snapshot MVCC de PostgreSQL, fijado en
+el primer statement de la transacción, garantiza que ambas lecturas ven exactamente el mismo
+instante. Ningún lock de aplicación. Un commit que llega después del snapshot es simplemente
+invisible para ese pase completo (diferido correctamente al siguiente ciclo), nunca parcialmente
+visible a una lectura y no a la otra.
+
+**REVALIDATED BY CLAUDE — before/after propio:** exponer `begin`/`end` explícitos (en vez de un
+único método caja-negra) permitió escribir una prueba determinista real, sin necesitar matar hilos
+ni introducir sleeps: `chainVerifierSnapshotIsNotRacedByWriterCommittingDuringSameStreamReconciliation`
+replica manualmente los dos pasos de `reconcileStreamFrom` (lectura de head, luego de eventos) sobre
+el snapshot compartido, con un escritor REAL confirmando un evento nuevo al MISMO stream en una
+conexión completamente separada, estrictamente entre ambas lecturas — confirma que la lectura de
+eventos NO ve el commit del escritor (el snapshot se sostiene), y que el evento diferido se
+reconcilia limpio, sin incidente falso, en el siguiente pase fresco.
+`chainVerifierSnapshotIsNotRacedByWriterCommittingToDifferentTenantDuringReconciliation` repite lo
+mismo con un escritor a un tenant/stream DISTINTO durante la ventana ("otro tenant" per la orden),
+confirmando que ambos streams reconcilian limpio después. **Antes** de este fix, replicar el mismo
+patrón de prueba (dos lecturas autocommit separadas con un commit real inyectado entre ellas) sí
+produce la vista inconsistente que Codex predijo — verificado manualmente durante el desarrollo de
+este fix, no incluido como test permanente para no dejar un test que documente un bug ya cerrado
+como si aún aplicara al código actual.
+
+### Deduplicación de la alerta operativa (item 4, segunda reauditoría)
+
+**PRE-FIX (Codex):** `security_incident` deduplicaba correctamente a nivel de fila
+(`ON CONFLICT (dedup_key) DO NOTHING`), pero el auditor imprimía `level=CRITICAL` incondicionalmente
+en cada ciclo que redescubría la MISMA condición persistente (un hallazgo de `Reconciler`, o una
+ruptura de cadena ya reportada) — deduplicación de fila en DB ≠ deduplicación de la alerta externa.
+
+**FIXED:** `AuditSql.insertSecurityIncidentTx` ahora devuelve `true` sólo cuando `executeUpdate()`
+realmente insertó una fila (0 = deduplicado, 1 = nuevo — sin necesitar `RETURNING`).
+`recordVerdictAtomically`/`recordChainIncidentAtomically`/`recordIncidentOnly` propagan ese booleano.
+`VerifierLoop` ahora sólo imprime `level=CRITICAL` cuando el booleano es `true`, en los tres puntos
+de emisión (veredicto individual, hallazgo de `Reconciler`, ruptura de cadena periódica).
+`HealthServer` ganó `openIncidentCount` (actualizado cada ciclo desde `AuditSql.countIncidents()`,
+expuesto también en `/health`), separado deliberadamente del log de CRITICAL: un incidente
+persistente sigue apareciendo como abierto en `/health` en cada ciclo, sin que eso dispare una nueva
+notificación externa.
+
+**REVALIDATED BY CLAUDE:** `persistentIncidentEmitsCriticalOnceAcrossMultipleCyclesButStaysOpenInHealth`
+siembra una fila genuinamente huérfana, corre 4 ciclos reales de `VerifierLoop.runOneIncrementalPassForTest`
+capturando `System.out`, y confirma exactamente **una** línea `CRITICAL` para ese incidente a través
+de los 4 ciclos, mientras `health.openIncidentCount()` permanece ≥1 durante todo el tiempo.
+
+### P1-RA-002 — frontera de crash (item 5, refuerzo, sin rediseño)
+
+Sin cambios a la transacción SQL existente (correcta según Codex). Se añadió el complemento directo
+de `failureMidTransactionLeavesNoPartialVerdictOrIncident` (ya existente, prueba "durante la
+transacción"): `successfulTransactionLeavesBothVerdictAndIncidentPersistedTogether` prueba el otro
+lado de la garantía de atomicidad — tras un `commit` real y exitoso, tanto el veredicto COMO el
+incidente están presentes juntos, nunca uno sin el otro. Together, ambas pruebas cubren
+"antes/durante/después" sin necesitar matar la JVM entre cada instrucción JDBC, ya que PostgreSQL
+mismo garantiza la atomicidad de la transacción.
+
+### P1-RA-006 — evidencia adicional verbo-por-verbo (item 6)
+
+`ungovernedTableWithOnlyOneOfInsertUpdateOrDeleteEachTripsTheGateIndependently` (nuevo, en
+`StirAuditCoveragePostgresTest`, reactor `stir-backend`) reproduce exactamente el patrón de Codex:
+tres tablas temporales `stir.audit_probe_{insert,update,delete}`, cada una con SÓLO el grant
+indicado y sin fila de registry — confirma que la consulta de cobertura atrapa las tres variantes de
+forma independiente, no sólo una tabla con los tres grants combinados (que la prueba sintética
+existente ya cubría por otro mecanismo). Sin migración V20 de prueba; fixture dinámico dentro del
+test, tal como pidió la orden.
+
+### Regresiones obligatorias (item 7) — sin cambios de comportamiento, re-confirmadas
+
+`idaxAppAndIdaxAdminCannotTouchAuditJournalOrHead`, `sessionReplicationRoleCannotBeSetByRuntimeRoles`,
+`rolledBackMutationLeavesNoEventAndNoHeadAdvance`, las pruebas de P1-RA-001 (anti-join),
+P1-RA-002 (atomicidad), P1-RA-005 (hash v2 independiente), P1-RA-007 (tamper histórico),
+`coverageRegistryClassifiesEveryStirTable`/`everyRealStirTableHasACoverageRegistryRow`, y
+`tenantAMutationNeverTouchesTenantBStream` - las 39 pruebas de `audit-verifier` (12 originales + 17
+de la primera remediación + 10 de esta segunda ronda) y las 3+1 de `StirAuditCoveragePostgresTest`
+siguen en verde sin haber tocado su lógica salvo donde se documenta explícitamente arriba.
+
+### Totales confirmados de esta segunda ronda (re-ejecutados en esta sesión, no reportados de memoria)
+
+- `mvn test` en `audit-verifier`: **39/39 tests, 0 fallos** (era 29/29 tras la primera remediación).
+- `mvn clean verify` en `stir-backend` (reactor completo): **228/228 tests, 0 fallos** (era 227/227;
+  el único nuevo es `ungovernedTableWithOnlyOneOfInsertUpdateOrDeleteEachTripsTheGateIndependently`
+  en `StirAuditCoveragePostgresTest`, ahora 4/4). Incluye la migración V1→V19 completa con la nueva
+  estructura de activation ceremony aplicando limpio en cada uno de los ~30 módulos de test que
+  migran su propia base Testcontainers.
+- `docker compose -p stir-audit-remediation-slot01-r2 config --quiet` y
+  `... build audit-provision stir-audit-verifier`: **PASS**, re-verificado en esta sesión contra el
+  código de esta segunda remediación (proyecto Compose aislado, nombre distinto de la primera
+  verificación y de `stir-dev`, ningún contenedor arrancado).
+- `git diff --check`: limpio.
 
 ## Worktrees y baseline
 
@@ -552,10 +748,13 @@ prueba. Se cumple.
 
 ## Siguiente paso
 
-Segunda reauditoría adversarial independiente de Codex sobre esta entrega remediada — dictamen
-esperado: los 7 findings P1-RA-001...007 aceptados como remediados, o nuevos findings sobre el
-propio código de remediación (en particular sobre el fix de P1-RA-007, que tuvo una primera
-iteración insuficiente encontrada y corregida dentro de esta misma sesión — ver esa sección). Sólo
-después de esa segunda reauditoría corresponde decidir: anclaje externo, consumption gate, cambios
-preventivos adicionales, o inicio de Fase 2 — per `CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md`. Ningún
-merge/push a `main` ni despliegue en DEV activa hasta entonces.
+Tercera reauditoría adversarial independiente de Codex sobre esta entrega remediada. La primera
+reauditoría cerró (con remediación) P1-RA-001...007; la segunda reauditoría encontró dos hallazgos
+nuevos bloqueantes sobre esa misma remediación (P1-R2-001, falso CRITICAL en Market Integrity
+legítimo; P1-R2-002, semántica de baseline exagerada) más una carrera no cerrada en `ChainVerifier`
+y un defecto operativo de deduplicación de alertas - los cuatro se abordan en "## Remediación de la
+segunda reauditoría" arriba. Dictamen esperado de la tercera reauditoría: estos cuatro puntos
+aceptados como remediados, o nuevos findings sobre el propio código de esta segunda remediación.
+Sólo después de esa tercera reauditoría corresponde decidir: anclaje externo, consumption gate,
+cambios preventivos adicionales, o inicio de Fase 2 — per `CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md`.
+Ningún merge/push a `main` ni despliegue en DEV activa hasta entonces.

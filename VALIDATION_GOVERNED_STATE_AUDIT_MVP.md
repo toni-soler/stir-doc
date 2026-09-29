@@ -1,16 +1,18 @@
 # Tamper-Evident Governed State Audit MVP — Fase 1: validación y checkpoint
 
-Estado: **Fase 1 remediada por SEGUNDA vez, tras la segunda reauditoría adversarial independiente de
-Codex (`SECOND_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, dictamen "FASE 1 REQUIERE NUEVA
-REMEDIATION"), reentregada para una TERCERA reauditoría. Fase 2 NO iniciada.** `AUD-012` permanece
-**HIGH, abierto** — sin cambio de severidad, por instrucción explícita: el objetivo nunca fue cerrar
+Estado: **Fase 1 remediada por TERCERA vez, tras la tercera reauditoría adversarial independiente de
+Codex (`THIRD_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, dictamen "FASE 1 REQUIERE NUEVA
+REMEDIATION"), reentregada para una CUARTA reauditoría — la tercera ronda **independently
+revalidated** P1-R2-001, P1-R2-002, la carrera de `ChainVerifier` y las regresiones P1-RA-001...007;
+el único bloqueante nuevo fue `P1-R3-001`. Fase 2 NO iniciada.** `AUD-012` permanece **HIGH,
+abierto** — sin cambio de severidad, por instrucción explícita: el objetivo nunca fue cerrar
 `AUD-012`. Este documento es el checkpoint solicitado en `CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md` y
-en las dos órdenes de remediación posteriores: no se ha hecho merge ni push a `main` en ningún repo,
-no se ha desplegado en la VM DEV activa (`stir-dev`), no se implementó external anchor ni
+en las tres órdenes de remediación posteriores: no se ha hecho merge ni push a `main` en ningún
+repo, no se ha desplegado en la VM DEV activa (`stir-dev`), no se implementó external anchor ni
 consumption gate, y no se empezó Fase 2. Todo el trabajo vive en worktrees aislados bajo
-`stir/.local/full-system-audit/slot-01/`. La sección "## Remediación de la segunda reauditoría
-(P1-R2-001, P1-R2-002, ChainVerifier race, alert dedup)" es la parte nueva de ESTE checkpoint; "##
-Remediación de los 7 findings..." es la parte nueva de la entrega ANTERIOR (P1-RA-001...007); el
+`stir/.local/full-system-audit/slot-01/`. La sección "## Remediación de la tercera reauditoría
+(P1-R3-001)" es la parte nueva de ESTE checkpoint; "## Remediación de la segunda reauditoría..." y
+"## Remediación de los 7 findings..." son las partes nuevas de las dos entregas ANTERIORES; el
 resto del documento es el checkpoint original de la primera entrega. Las secciones que quedaron
 desactualizadas por cada ronda de remediación están marcadas explícitamente como tal, nunca
 borradas o reescritas en silencio.
@@ -447,6 +449,158 @@ siguen en verde sin haber tocado su lógica salvo donde se documenta explícitam
   verificación y de `stir-dev`, ningún contenedor arrancado).
 - `git diff --check`: limpio.
 
+## Remediación de la tercera reauditoría (P1-R3-001 — alert delivery is at-most-once and may be zero)
+
+Evidencia normativa: `THIRD_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md` (rama documental
+`codex/phase1-third-reaudit`, fecha 2026-09-29), leído en su totalidad. Esta tercera reauditoría
+confirmó **INDEPENDENTLY REVALIDATED** para P1-R2-001, P1-R2-002, la carrera de `ChainVerifier` y
+las regresiones P1-RA-001...007 — ninguno de esos fixes se tocó en esta ronda salvo lo estrictamente
+necesario para separar `/health` de la nueva `/security-status` (ver abajo). El único bloqueante
+nuevo fue `P1-R3-001`.
+
+### P1-R3-001 — HIGH — la entrega del log es at-most-once, puede ser cero
+
+**PRE-FIX (Codex):** el harness aislado `CrashAfterCommitProbe.java` invocó el método de producción
+`AuditSql.recordIncidentOnly()` con un `dedup_key` real, confirmó `POST_COMMIT=true`, y ejecutó
+`Runtime.halt(137)` **antes** de cualquier línea `CRITICAL`. Al arrancar el jar real sobre esa base:
+1 incidente durable para esa clave, `/health openIncidentCount=2` (otro incidente previo), **0
+líneas `CRITICAL` para la clave nueva**, incluso tras varios polls. El código confirmaba el orden
+`recordIncidentOnly()` (commit) → `println`; al reiniciar, `ON CONFLICT` devuelve `false` y suprime
+el log para siempre. Impacto: un monitor que dependiera únicamente del stream de logs puede perder
+un incidente nuevo sin ninguna segunda oportunidad de verlo en los logs.
+
+**DECISIÓN ARQUITECTÓNICA (adoptada literalmente, sin rediseñar el resto del audit):** Fase 1 nunca
+prometerá `exactly-once stdout` — no es una propiedad realista sin un receptor externo
+transaccional/idempotente. `stir_audit.security_incident` pasa a ser, explícitamente, **la alerta de
+seguridad canónica y durable**. Un `CRITICAL` en stdout/log es únicamente
+`BEST_EFFORT_CRITICAL_LOG` — nunca `GUARANTEED_ALERT_DELIVERY`, nunca la prueba de que la alerta
+existe o fue entregada a un operador. La propiedad de seguridad de Fase 1 pasa a ser exactamente:
+
+> Once a demonstrable violation is committed as a `security_incident`, the critical condition
+> remains durably and repeatedly observable after crashes/restarts until an explicit future
+> incident-resolution mechanism handles it.
+
+No se implementó ese mecanismo futuro de resolución (`acknowledge`/`resolve`/`close`) — exigiría una
+autoridad y contrato normados que no existen todavía; añadirlo por conveniencia habría dado a
+SuperAdmin/Guardian/auditor una facultad implícita de borrar una alerta, exactamente lo que la orden
+prohibió explícitamente.
+
+**FIXED:**
+1. **`/health` y `/security-status` son ahora dos endpoints HTTP completamente separados** en
+   `HealthServer`, nunca mezclados. `/health` sigue siendo liveness puro, en memoria, sin tocar la
+   base de datos, sin mencionar incidentes en absoluto. `/security-status` consulta
+   `stir_audit.security_incident` **directamente en la base de datos, en cada request** — nunca
+   memoria del proceso — y devuelve `securityState` (`CLEAR` si `openIncidentCount=0`,
+   `CRITICAL_SECURITY_INCIDENT` en caso contrario), `openIncidentCount`, el fingerprint del
+   incidente más reciente (`latestIncidentId`, `latestIncidentDedupKey`, `latestIncidentReasonCode`,
+   `latestIncidentDetectedAt`) y `dbTime`. El código HTTP de `/security-status` es siempre 200
+   cuando la consulta a la DB tiene éxito — la condición `CRITICAL_SECURITY_INCIDENT` viaja en el
+   **cuerpo** JSON, nunca como error HTTP, precisamente para que un orchestrator no confunda "hay un
+   incidente abierto" con "este proceso está caído" y entre en un bucle de reinicios que nunca
+   podría "curar" una condición que vive en la base de datos, no en el proceso. Sólo un 503 real
+   (la propia consulta a la DB falla) significa "no puedo determinar el estado" — una condición
+   operacional distinta, documentada explícitamente como tal.
+2. **La transacción atómica veredicto+incidente NO se tocó** — ya revalidada por Codex, correcta tal
+   cual. `AuditSql.countIncidents()`/`HealthServer.setOpenIncidentCount()` (el contador en memoria
+   introducido en la segunda remediación) se **eliminaron** de `HealthServer` por completo: mantener
+   un contador en memoria como sustituto de una consulta DB directa era precisamente el tipo de
+   fuente-de-verdad-equivocada que esta ronda debía corregir. `/security-status` reemplaza esa
+   responsabilidad con una consulta fresca cada vez.
+3. **Cada línea `System.out.println("level=CRITICAL ...")` en `VerifierLoop` quedó explícitamente
+   comentada como `BEST_EFFORT_CRITICAL_LOG`** — el incidente ya está comprometido de forma durable
+   por `recordVerdictAtomically`/`recordIncidentOnly`/`recordChainIncidentAtomically` ANTES de que
+   cualquiera de esas líneas se ejecute; siguen imprimiéndose (siguen siendo útiles como
+   conveniencia diagnóstica), pero ningún comentario ni documento las presenta ya como garantía.
+
+**REVALIDATED BY CLAUDE — reproducción exacta:** `SecurityStatusCrashReproductionTest` (nuevo
+archivo) reproduce el patrón exacto de Codex con los puntos de entrada de producción reales:
+1. `CrashAfterCommitProbe` (clase de test, lanzada como JVM **realmente separada** vía
+   `ProcessBuilder`, nunca in-process — `Runtime.halt()` mataría al runner de tests si se llamara
+   directamente) invoca `AuditSql.recordIncidentOnly()` real, confirma `POST_COMMIT=true`, y hace
+   `Runtime.halt(137)` antes de imprimir nada parecido a `CRITICAL`. El test confirma
+   `exitValue()==137` y que la salida capturada nunca contiene `CRITICAL`.
+2. Confirmación directa contra la DB, sin depender de ningún proceso: la fila `security_incident`
+   existe.
+3. Una instancia **completamente nueva** de `Main` (el entrypoint de producción real, mismo
+   classpath, servidor HTTP real, cero ciclos previos de `VerifierLoop`, cero conocimiento en
+   memoria de este incidente específico) se arranca como subproceso con las variables de entorno
+   reales (`STIR_AUDITOR_JDBC_URL`/`_USER`/`_PASSWORD`/`_HEALTH_PORT`/`_POLL_INTERVAL_MS`). Se
+   consulta su `/security-status` real por HTTP repetidamente hasta ver
+   `CRITICAL_SECURITY_INCIDENT` — y se confirma que el cuerpo contiene el `dedup_key` y
+   `reason_code` exactos de este incidente, y que la salida capturada de ESTE proceso nuevo **nunca**
+   contiene una línea `CRITICAL` para esa clave (prueba directa de que no depende del log).
+4. Persistencia confirmada en 3 polls adicionales sucesivos, no un acierto puntual.
+5. `/health` de esa misma instancia se confirma `200`/`healthy` y **sin mencionar** incidentes en
+   absoluto — separación real entre liveness y estado de seguridad, no sólo documental.
+
+`securityStatusReportsClearWhenNoIncidentsExist` (mismo archivo) confirma el estado de control:
+sobre una base recién migrada, sin ningún incidente, `/security-status` (consultado directamente vía
+`HealthServer.querySecurityStatus`) devuelve `CLEAR`, `openIncidentCount=0`,
+`latestIncidentId=null` — probando que `CLEAR` es un estado real y alcanzable, no que el endpoint
+siempre dice `CRITICAL`.
+
+`persistentIncidentStaysQuietInBestEffortLogButRemainsDurablyCriticalInSecurityStatus`
+(`VerifierDetectionTest`, renombrado desde la segunda ronda) se actualizó para verificar el estado
+canónico vía `HealthServer.querySecurityStatus` en vez del contador en memoria eliminado, y su
+javadoc ya no afirma "debe emitir exactamente un CRITICAL" como garantía — sólo describe el
+comportamiento best-effort observado, con la aserción canónica siendo el estado DB-backed.
+
+### Monitorización canónica — probe independiente
+
+`stir-main/scripts/audit_security_status_probe.py` (nuevo): script Python mínimo, stdlib-only, que
+consulta `/security-status` por HTTP simple. No usa `idax_app`, no necesita secretos
+constitucionales, no gobierna, no modifica incidentes, no depende de que se haya impreso
+anteriormente ningún log — sólo lee el estado durable vía la misma consulta DB que ya hace el propio
+endpoint. Código de salida `0`=`CLEAR`, `1`=`CRITICAL_SECURITY_INCIDENT` (usable directamente como
+chequeo cron/systemd-timer), `2`=endpoint inalcanzable (documentado explícitamente en el propio
+docstring como una condición operacional **distinta** que también exige atención — "el auditor está
+completamente caído" no es lo mismo que "CLEAR"). Verificado en esta sesión contra un servidor HTTP
+local sirviendo la forma JSON exacta que produce `HealthServer` (parseo correcto, código de salida
+`1` para `CRITICAL_SECURITY_INCIDENT`) y contra un endpoint inalcanzable real (código de salida `2`).
+No se añadió como Docker healthcheck de `stir-audit-verifier` en `compose.yml` — deliberadamente:
+atar este probe a la política de reinicio de Compose sería exactamente el antipatrón que la
+decisión arquitectónica de esta ronda prohíbe ("evitar que un orchestrator intente «curar» un
+incidente reiniciando continuamente el auditor"). Queda como herramienta de polling externo
+invocable manualmente o desde un scheduler ajeno al ciclo de vida del propio auditor.
+
+### Patrón futuro de entrega externa (documentado, NO implementado)
+
+Fuera de alcance de Fase 1, documentado únicamente para quien retome:
+`security_incident` → outbox de notificación durable → notificador externo → entrega
+at-least-once → `incident_id`/`dedup_key` como clave de idempotencia. No prometer exactly-once para
+email/webhook/log salvo que el receptor soporte una semántica verificable de idempotencia/ack.
+
+### Regresiones (item 7) — smoke/regression re-ejecutado
+
+`fullBacklogOfLegitimateSignalUnderReviewFinalProducesZeroIncidents` (Market Integrity legítimo →
+cero incidentes), la matriz negativa completa de Market Integrity (→ incidente durable),
+`rolledBackMutationLeavesNoEventAndNoHeadAdvance` (commit inverso),
+`failureMidTransactionLeavesNoPartialVerdictOrIncident`/
+`successfulTransactionLeavesBothVerdictAndIncidentPersistedTogether` (atomicidad veredicto+
+incidente), `baselineImportSuppressesLegacyRowsButNotGenuinelyOrphanedOnes`/
+`v16DataMigratesThroughActivationAsLegacyUnverifiedWithoutFalseCritical` (baseline upgrade),
+`chainVerifierSnapshotIsNotRacedByWriterCommittingDuringSameStreamReconciliation`/
+`...ToDifferentTenantDuringReconciliation` (snapshot de `ChainVerifier`),
+`periodicReconciliationCatchesEditedHashOnInteriorEventAfterCheckpointAdvancedPastIt` (tamper
+histórico), `everyRealStirTableHasACoverageRegistryRow`/
+`ungovernedTableWithOnlyOneOfInsertUpdateOrDeleteEachTripsTheGateIndependently` (coverage gate),
+`idaxAppAndIdaxAdminCannotTouchAuditJournalOrHead`/`sessionReplicationRoleCannotBeSetByRuntimeRoles`
+(roles/grants), y las pruebas de trigger fail-closed existentes — todas re-ejecutadas en esta sesión
+como parte del `mvn test`/`mvn verify` completo, sin cambios de comportamiento salvo donde se
+documenta explícitamente arriba (la separación `/health`/`/security-status` y la eliminación del
+contador en memoria).
+
+### Totales confirmados de esta tercera ronda (re-ejecutados en esta sesión)
+
+- `mvn test` en `audit-verifier`: **41/41 tests, 0 fallos** (era 39/39; los 2 nuevos son
+  `SecurityStatusCrashReproductionTest`).
+- `mvn clean verify` en `stir-backend` (reactor completo): **228/228 tests, 0 fallos** — sin cambio
+  respecto a la segunda ronda, tal como se esperaba (`StirAuditCoveragePostgresTest` y el resto del
+  reactor no dependen del código tocado en esta ronda).
+- `docker compose config --quiet` y `build stir-audit-verifier` sobre un proyecto Compose aislado
+  nuevo: **PASS**, re-verificado contra el código de esta tercera remediación.
+- `git diff --check`: limpio.
+
 ## Worktrees y baseline
 
 | Repo | Worktree | Rama | Base | HEAD tras Fase 1 |
@@ -748,13 +902,17 @@ prueba. Se cumple.
 
 ## Siguiente paso
 
-Tercera reauditoría adversarial independiente de Codex sobre esta entrega remediada. La primera
-reauditoría cerró (con remediación) P1-RA-001...007; la segunda reauditoría encontró dos hallazgos
-nuevos bloqueantes sobre esa misma remediación (P1-R2-001, falso CRITICAL en Market Integrity
-legítimo; P1-R2-002, semántica de baseline exagerada) más una carrera no cerrada en `ChainVerifier`
-y un defecto operativo de deduplicación de alertas - los cuatro se abordan en "## Remediación de la
-segunda reauditoría" arriba. Dictamen esperado de la tercera reauditoría: estos cuatro puntos
-aceptados como remediados, o nuevos findings sobre el propio código de esta segunda remediación.
-Sólo después de esa tercera reauditoría corresponde decidir: anclaje externo, consumption gate,
-cambios preventivos adicionales, o inicio de Fase 2 — per `CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md`.
-Ningún merge/push a `main` ni despliegue en DEV activa hasta entonces.
+Cuarta y (según la orden que abrió esta ronda) potencialmente final reauditoría adversarial
+independiente de Codex sobre esta entrega remediada. Recuento de rondas: la primera cerró (con
+remediación) P1-RA-001...007; la segunda encontró y remedió P1-R2-001, P1-R2-002, la carrera de
+`ChainVerifier` y el defecto de deduplicación de alertas; la tercera **independently revalidated**
+los cuatro puntos de la segunda ronda junto con las regresiones P1-RA-001...007, y encontró un único
+bloqueante nuevo, `P1-R3-001` (entrega de alerta at-most-once/posiblemente cero), remediado en "##
+Remediación de la tercera reauditoría" arriba mediante la decisión arquitectónica explícita de
+tratar `security_incident` como la alerta de seguridad canónica y durable, separada de cualquier
+garantía sobre el log. Dictamen esperado de la cuarta reauditoría: `P1-R3-001` aceptado como
+remediado, o nuevos findings sobre el propio código de esta tercera remediación (en particular sobre
+`/security-status`, `HealthServer`, o el probe de `stir-main`). Sólo después de esa cuarta
+reauditoría corresponde decidir: anclaje externo, consumption gate, cambios preventivos adicionales,
+o inicio de Fase 2 — per `CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md`. Ningún merge/push a `main` ni
+despliegue en DEV activa hasta entonces.

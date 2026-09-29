@@ -83,8 +83,23 @@ re-verified against a real `mvn test -Dtest=VerifierDetectionTest#coverageRegist
 run (migration still applies cleanly, V1→V19), then re-fast-forwarded into `main`. All four repos'
 `main` are now clean on `git diff --check`.
 
-<!-- PUSH STATUS: see the live conversation - this checkpoint documents everything through the
-local merge; push execution and its confirmation are the very next step in this session. -->
+### Push, confirmed
+
+Pushed with explicit user authorization ("Adelante con push."). `git fetch origin main` +
+`git rev-parse main` vs `origin/main` confirmed byte-identical on all four repos immediately after
+pushing:
+
+| Repo | Pushed `main` HEAD | local == `origin/main` |
+|---|---|---|
+| `stir-backend` | `dd131da1e85e7d0415c55fad268cc1467ec7d24b` | YES |
+| `stir-main` | `d60c9c3681a2b8e3dacc7a09367642391586e3c0` | YES |
+| `stir-doc` | `b8568c05c35cad689f52f260ee522328c7fee782` | YES |
+| `stir-workspace` | `e61e7fb5dd7e36c91db6e6014096045678394110` | YES |
+
+(`stir-doc`'s own push landed on the second attempt - the first was blocked by Claude Code's own
+tool-permission classifier as a precaution on a publish-type action, same as it initially blocked
+the very first `stir-backend` push before the user explicitly authorized proceeding; the second
+attempt for `stir-doc` succeeded immediately, same command, same content, no workaround used.)
 
 ### Post-integration verification (this session)
 

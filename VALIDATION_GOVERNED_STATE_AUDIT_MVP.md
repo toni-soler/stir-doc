@@ -1,20 +1,21 @@
 # Tamper-Evident Governed State Audit MVP — Fase 1: validación y checkpoint
 
-Estado: **Fase 1 remediada por CUARTA vez, tras la cuarta reauditoría adversarial independiente de
-Codex (`FOURTH_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, dictamen "FASE 1 REQUIERE NUEVA
-REMEDIATION"), reentregada para una QUINTA reauditoría — la cuarta ronda confirmó `P1-R3-001` como
-**FOUND → FIXED → INDEPENDENTLY REVALIDATED**; el único bloqueante nuevo fue `P1-R4-001`, un defecto
-acotado exclusivamente al probe externo de `stir-main` (nunca al audit journal/verifier/DB). Fase 2
-NO iniciada.** `AUD-012` permanece **HIGH, abierto** — sin cambio de severidad, por instrucción
-explícita: el objetivo nunca fue cerrar `AUD-012`. Este documento es el checkpoint solicitado en
-`CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md` y en las cuatro órdenes de remediación posteriores: no se ha
+Estado: **Fase 1 remediada por QUINTA vez, tras la quinta reauditoría adversarial independiente de
+Codex (`FIFTH_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, dictamen "FASE 1 REQUIERE NUEVA
+REMEDIATION"), reentregada para una SEXTA reauditoría — la quinta ronda confirmó `P1-R4-001` como
+**FOUND → FIXED → INDEPENDENTLY REVALIDATED** y re-confirmó `P1-R3-001` sin regresión; el único
+bloqueante nuevo fue `P1-R5-001`, una micro-remediación acotada exclusivamente al mismo probe
+externo de `stir-main` (nunca al audit journal/verifier/DB/Java). Fase 2 NO iniciada.**
+`AUD-012` permanece **HIGH, abierto** — sin cambio de severidad, por instrucción explícita: el
+objetivo nunca fue cerrar `AUD-012`. Este documento es el checkpoint solicitado en
+`CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md` y en las cinco órdenes de remediación posteriores: no se ha
 hecho merge ni push a `main` en ningún repo, no se ha desplegado en la VM DEV activa (`stir-dev`),
 no se implementó external anchor ni consumption gate, y no se empezó Fase 2. Todo el trabajo vive en
 worktrees aislados bajo `stir/.local/full-system-audit/slot-01/`. La sección "## Remediación de la
-cuarta reauditoría (P1-R4-001)" es la parte nueva de ESTE checkpoint; las secciones "## Remediación
-de la tercera/segunda reauditoría..." y "## Remediación de los 7 findings..." son las partes nuevas
-de las entregas ANTERIORES; el resto del documento es el checkpoint original de la primera entrega.
-Las secciones que quedaron desactualizadas por cada ronda de remediación están marcadas
+quinta reauditoría (P1-R5-001)" es la parte nueva de ESTE checkpoint; las secciones "## Remediación
+de la cuarta/tercera/segunda reauditoría..." y "## Remediación de los 7 findings..." son las partes
+nuevas de las entregas ANTERIORES; el resto del documento es el checkpoint original de la primera
+entrega. Las secciones que quedaron desactualizadas por cada ronda de remediación están marcadas
 explícitamente como tal, nunca
 borradas o reescritas en silencio.
 
@@ -715,6 +716,65 @@ fix vive enteramente en el lado del probe, que es exactamente lo que la orden pi
   cambio no afecta ninguna imagen construida.
 - `git diff --check`: limpio.
 
+## Remediación de la quinta reauditoría (P1-R5-001 — invalid typed state exits as CRITICAL)
+
+Evidencia normativa: `FIFTH_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, leído en su totalidad.
+Esta quinta reauditoría confirmó `P1-R4-001` **FOUND → FIXED → INDEPENDENTLY REVALIDATED** (matriz
+CLI/HTTP independiente con 21 respuestas distintas contra el script real como subproceso: `CLEAR+0`
+→ 0; `CRITICAL_SECURITY_INCIDENT`+1/3 → 1; `503`/inalcanzable → 2; `UNKNOWN`+1, estado/count
+ausentes, `CLEAR`+1, `CRITICAL`+0, count negativo/string/booleano/`null`, JSON malformado, JSON
+raíz array/escalar, cuerpo vacío y un estado futuro desconocido → todos 3) y re-confirmó `P1-R3-001`
+sin regresión (nuevo contenedor PostgreSQL aislado, V1→V19 limpia, `CrashAfterCommitProbe` real,
+tres jars de producción nuevos exponiendo `CRITICAL_SECURITY_INCIDENT` con fingerprint exacto). El
+único bloqueante nuevo, `P1-R5-001`, es explícitamente de severidad **LOW** y — por instrucción del
+propio Codex — está acotado exclusivamente al mismo probe externo; no se tocó Java, `audit-verifier`,
+DB/migraciones, journal, `security_incident`, `/security-status`, roles/grants, ni Compose.
+
+### P1-R5-001 — LOW — estado con tipo inválido sale como CRITICAL en vez de INVALID
+
+**PRE-FIX (Codex):** el servidor HTTP independiente devolvió `{"securityState":[],
+"openIncidentCount":1}` y después `{"securityState":{},"openIncidentCount":1}`. Cada invocación de
+la CLI real terminó con **exit 1** y un **traceback de Python sin capturar**, no el exit 3 exigido.
+**Causa exacta:** `state not in VALID_STATES` ejecuta membership sobre un `set` — un `list`/`dict`
+de JSON decodifica a un `list`/`dict` de Python, ambos **no hasheables**, y esa comprobación lanza
+`TypeError` fuera del bloque `except InvalidSecurityStatusResponse` de `poll_once()`. La excepción no
+capturada revienta el intérprete, que por defecto sale con código 1 — coincidiendo exactamente con
+`EXIT_CRITICAL`. **Impacto:** un scheduler que confiara únicamente en el código de salida podía
+reportar un incidente crítico gobernado real donde la condición verdadera era una respuesta
+malformada/con drift de versión del endpoint — y además se perdía el diagnóstico de respuesta
+inválida que el propio script ya sabía producir para otros casos.
+
+**FIXED:** micro-cambio de una sola comprobación, exclusivamente en
+`stir-main/scripts/audit_security_status_probe.py`: antes de `state not in VALID_STATES`, se añadió
+`if not isinstance(state, str): raise InvalidSecurityStatusResponse(...)`. Cualquier `securityState`
+que no sea `str` (array, objeto, entero, booleano, `null`) falla cerrado como `INVALID_SECURITY_
+STATUS_RESPONSE`/exit 3 **antes** de que el código llegue jamás a una operación de membership sobre
+un valor no hasheable. No se cambió ningún otro comportamiento del contrato de 4 códigos de salida.
+
+**REVALIDATED BY CLAUDE:**
+- Suite existente ampliada con `test_array_state_exits_invalid_not_critical`,
+  `test_object_state_exits_invalid_not_critical`, `test_integer_state_exits_invalid`,
+  `test_boolean_state_exits_invalid`, `test_null_state_exits_invalid` (harness in-process existente).
+- **Nueva clase `SecurityStatusProbeCliContractTest`**, que ejecuta el script real empaquetado como
+  subproceso (`subprocess.run([sys.executable, "audit_security_status_probe.py", "--url", ...])`) —
+  deliberadamente distinta del harness in-process, porque el bug de P1-R5-001 sólo es observable
+  como *código de salida del proceso* (una excepción no capturada en una llamada in-process
+  simplemente habría fallado el método de test con un traceback, no habría demostrado qué código de
+  salida vería un scheduler real). Cubre exactamente las dos reproducciones de Codex (`securityState:
+  []` y `securityState: {}`, ambas ahora exit 3, antes exit 1 con traceback) más `UNKNOWN`/`CLEAR`/
+  `CRITICAL` como control, y afirma explícitamente que **no aparece ningún traceback en stderr**, no
+  sólo que el código de salida coincida por casualidad.
+- **26/26 tests, 0 fallos** en `python scripts/test_audit_security_status_probe.py` (era 16/16; los
+  10 nuevos son los 5 de tipo de estado + los 5 de la nueva clase CLI).
+- `SecurityStatusCrashReproductionTest` (Java, sin tocar) re-ejecutado de forma independiente:
+  **2/2 PASS** — sin regresión de P1-R3-001.
+- `stir-backend`: `git status` limpio, confirmando que ningún archivo Java/DB fue tocado.
+- `git diff --check`: limpio.
+
+No se repitieron los 228 tests de `stir-backend` ni los 41 de `audit-verifier` en esta ronda — por
+instrucción explícita de la orden ("no aporta evidencia nueva a este finding" dado que ningún
+componente de esos reactores cambió), confirmado además por `git status` limpio en `stir-backend`.
+
 ## Worktrees y baseline
 
 | Repo | Worktree | Rama | Base | HEAD tras Fase 1 |
@@ -1016,18 +1076,22 @@ prueba. Se cumple.
 
 ## Siguiente paso
 
-Quinta reauditoría adversarial independiente de Codex sobre esta entrega remediada — descrita por la
-propia orden que abrió esta cuarta ronda como "reauditoría final y estrecha". Recuento de rondas: la
-primera cerró (con remediación) P1-RA-001...007; la segunda encontró y remedió P1-R2-001, P1-R2-002,
-la carrera de `ChainVerifier` y el defecto de deduplicación de alertas; la tercera **independently
-revalidated** los cuatro puntos de la segunda ronda junto con las regresiones P1-RA-001...007, y
-encontró `P1-R3-001` (entrega de alerta at-most-once/posiblemente cero), remediado mediante la
-decisión arquitectónica de tratar `security_incident` como la alerta de seguridad canónica y
-durable; la cuarta **independently revalidated** `P1-R3-001` y encontró `P1-R4-001`, un defecto
-acotado exclusivamente al probe externo (`stir-main/scripts/audit_security_status_probe.py`),
-remediado en "## Remediación de la cuarta reauditoría" arriba sin tocar journal, verifier,
-`security_incident`, baseline, `ChainVerifier` ni roles/grants. Dictamen esperado de la quinta
-reauditoría: `P1-R4-001` aceptado como remediado. Sólo después de esa quinta reauditoría corresponde
-decidir: anclaje externo, consumption gate, cambios preventivos adicionales, o inicio de Fase 2 —
-per `CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md`. Ningún merge/push a `main` ni despliegue en DEV activa
-hasta entonces. Ninguna nueva feature se añadió en esta ronda más allá de lo que `P1-R4-001` exigía.
+Sexta reauditoría de Codex sobre esta entrega remediada — la orden que abrió esta quinta ronda la
+describe como "una última revalidación independiente... limitada exclusivamente a P1-R5-001".
+Recuento de rondas: la primera cerró (con remediación) P1-RA-001...007; la segunda encontró y
+remedió P1-R2-001, P1-R2-002, la carrera de `ChainVerifier` y el defecto de deduplicación de
+alertas; la tercera **independently revalidated** los cuatro puntos de la segunda ronda junto con
+las regresiones P1-RA-001...007, y encontró `P1-R3-001`, remediado mediante la decisión
+arquitectónica de tratar `security_incident` como la alerta de seguridad canónica y durable; la
+cuarta **independently revalidated** `P1-R3-001` y encontró `P1-R4-001`, un defecto acotado
+exclusivamente al probe externo; la quinta **independently revalidated** `P1-R4-001`, re-confirmó
+`P1-R3-001` sin regresión, y encontró `P1-R5-001` (LOW, una excepción no capturada por membership
+sobre un tipo no hasheable que hacía salir el probe con el mismo código que un incidente real),
+remediado en "## Remediación de la quinta reauditoría" arriba con un cambio de una sola línea
+exclusivamente en el mismo probe externo — journal, verifier, DB/migraciones, `security_incident`,
+`/security-status`, roles/grants y Compose permanecieron intactos, confirmado por `git status`
+limpio en `stir-backend`. Dictamen esperado de la sexta reauditoría: `P1-R5-001` aceptado como
+remediado. Sólo después de esa sexta reauditoría corresponde decidir: anclaje externo, consumption
+gate, cambios preventivos adicionales, o inicio de Fase 2 — per
+`CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md`. Ningún merge/push a `main` ni despliegue en DEV activa
+hasta entonces. Ninguna nueva feature se añadió en esta ronda más allá de lo que `P1-R5-001` exigía.

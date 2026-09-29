@@ -18,7 +18,7 @@
 | WebAuthn en VM, virtual y hardware manual | HTTP E2E local pasa replay/tenant/comunidad/rotación/6-of-7; navegador/hardware VM pendiente | PARCIAL |
 | WebAuthn malformado | `AUD-008` reproducido pre-fix; fix `8e4003a` validado localmente | FIX LOCAL; VM/main pendientes |
 | Object storage | digest reproducible pero anterior a releases con fixes (`AUD-009`) | REVISIÓN/RESTORE pendientes |
-| Upgrade desde versión anterior con datos | STIR V16→V17 con constitución histórica en PostgreSQL local; SQL V17 aplicada en copia restaurada de DEV, cero DML `idax_admin` y dos `INSERT` directos denegados | PASS SQL aislado; Flyway/stack VM pendientes |
+| Upgrade desde versión anterior con datos | Flyway 11.12.0 aplicó V16→V17 en copia del dump DEV: 28 constituciones y 26 credentials conservadas, cero DML `idax_admin` | PASS Flyway aislado; boot/stack VM pendientes |
 | Reinicios y durabilidad VM | pendiente | NOT RUN |
 | Backup/restore a entorno aislado | checkpoint DEV: primer restore falló sin roles globales; segundo `pg_restore --exit-on-error` pasó tras recrearlos, 48 tablas STIR/216 políticas RLS/26 credentials coinciden; MinIO restaurado da health 200; faltan fixtures no vacíos y boot de STIR contra la copia | PARCIAL; recoverability no demostrada |
 | Navegador HTTPS real con sesión | login público cargó; sesión no disponible | INCOMPLETO |

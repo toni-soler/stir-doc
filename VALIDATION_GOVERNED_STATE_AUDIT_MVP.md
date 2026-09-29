@@ -1,20 +1,21 @@
 # Tamper-Evident Governed State Audit MVP — Fase 1: validación y checkpoint
 
-Estado: **Fase 1 remediada por TERCERA vez, tras la tercera reauditoría adversarial independiente de
-Codex (`THIRD_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, dictamen "FASE 1 REQUIERE NUEVA
-REMEDIATION"), reentregada para una CUARTA reauditoría — la tercera ronda **independently
-revalidated** P1-R2-001, P1-R2-002, la carrera de `ChainVerifier` y las regresiones P1-RA-001...007;
-el único bloqueante nuevo fue `P1-R3-001`. Fase 2 NO iniciada.** `AUD-012` permanece **HIGH,
-abierto** — sin cambio de severidad, por instrucción explícita: el objetivo nunca fue cerrar
-`AUD-012`. Este documento es el checkpoint solicitado en `CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md` y
-en las tres órdenes de remediación posteriores: no se ha hecho merge ni push a `main` en ningún
-repo, no se ha desplegado en la VM DEV activa (`stir-dev`), no se implementó external anchor ni
-consumption gate, y no se empezó Fase 2. Todo el trabajo vive en worktrees aislados bajo
-`stir/.local/full-system-audit/slot-01/`. La sección "## Remediación de la tercera reauditoría
-(P1-R3-001)" es la parte nueva de ESTE checkpoint; "## Remediación de la segunda reauditoría..." y
-"## Remediación de los 7 findings..." son las partes nuevas de las dos entregas ANTERIORES; el
-resto del documento es el checkpoint original de la primera entrega. Las secciones que quedaron
-desactualizadas por cada ronda de remediación están marcadas explícitamente como tal, nunca
+Estado: **Fase 1 remediada por CUARTA vez, tras la cuarta reauditoría adversarial independiente de
+Codex (`FOURTH_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, dictamen "FASE 1 REQUIERE NUEVA
+REMEDIATION"), reentregada para una QUINTA reauditoría — la cuarta ronda confirmó `P1-R3-001` como
+**FOUND → FIXED → INDEPENDENTLY REVALIDATED**; el único bloqueante nuevo fue `P1-R4-001`, un defecto
+acotado exclusivamente al probe externo de `stir-main` (nunca al audit journal/verifier/DB). Fase 2
+NO iniciada.** `AUD-012` permanece **HIGH, abierto** — sin cambio de severidad, por instrucción
+explícita: el objetivo nunca fue cerrar `AUD-012`. Este documento es el checkpoint solicitado en
+`CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md` y en las cuatro órdenes de remediación posteriores: no se ha
+hecho merge ni push a `main` en ningún repo, no se ha desplegado en la VM DEV activa (`stir-dev`),
+no se implementó external anchor ni consumption gate, y no se empezó Fase 2. Todo el trabajo vive en
+worktrees aislados bajo `stir/.local/full-system-audit/slot-01/`. La sección "## Remediación de la
+cuarta reauditoría (P1-R4-001)" es la parte nueva de ESTE checkpoint; las secciones "## Remediación
+de la tercera/segunda reauditoría..." y "## Remediación de los 7 findings..." son las partes nuevas
+de las entregas ANTERIORES; el resto del documento es el checkpoint original de la primera entrega.
+Las secciones que quedaron desactualizadas por cada ronda de remediación están marcadas
+explícitamente como tal, nunca
 borradas o reescritas en silencio.
 
 ## Objetivo cumplido, formulado con precisión
@@ -601,6 +602,119 @@ contador en memoria).
   nuevo: **PASS**, re-verificado contra el código de esta tercera remediación.
 - `git diff --check`: limpio.
 
+## Remediación de la cuarta reauditoría (P1-R4-001 — probe fails open on unknown/inconsistent payload)
+
+Evidencia normativa: `FOURTH_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, leído en su totalidad.
+Esta cuarta reauditoría confirmó `P1-R3-001` **FOUND → FIXED → INDEPENDENTLY REVALIDATED** bajo el
+contrato revisado (tres jars de producción nuevos, cada uno con proceso y puerto HTTP propios,
+devolvieron `HTTP 200 CRITICAL_SECURITY_INCIDENT`, count 1, y el `dedup_key` exacto en cuatro polls
+repetidos; tras matar el proceso, el probe devolvió exit 2/`UNREACHABLE`; un segundo incidente
+distinto produjo count 2 y el fingerprint más nuevo en un jar fresco; ninguna fila se duplicó por
+reinicios). El único bloqueante nuevo, `P1-R4-001`, está **acotado exclusivamente al probe externo**
+— el propio texto de Codex es explícito: *"this is a small probe contract defect, not a reason to
+redesign the journal/verifier"* y *"the production endpoint currently emits known states; this
+attack exercises the probe's trust boundary and does not prove that production currently emits
+UNKNOWN"*. En consecuencia, **no se tocó** el journal, las reglas del verifier, `security_incident`,
+el baseline/activation ceremony, `ChainVerifier`, ni roles/grants — sólo
+`stir-main/scripts/audit_security_status_probe.py` y su nueva suite de regresión.
+
+### P1-R4-001 — MEDIUM — el probe reporta éxito ante un estado de seguridad desconocido
+
+**PRE-FIX (Codex):** un servidor HTTP aislado devolvió `200 {"securityState":"UNKNOWN",
+"openIncidentCount":1}`. Ejecutar el probe real (`audit_security_status_probe.py --url
+http://127.0.0.1:<puerto>/security-status`) terminó con **exit 0**, imprimiendo `state=UNKNOWN
+openIncidentCount=1`. El código anterior hacía `state = body.get("securityState", "UNKNOWN")` y
+luego `return 1 if state == "CRITICAL_SECURITY_INCIDENT" else 0` — cualquier valor que no fuera
+literalmente la cadena `"CRITICAL_SECURITY_INCIDENT"` caía en la rama de éxito/CLEAR, incluyendo un
+estado ausente, desconocido, o un `openIncidentCount` incoherente con el estado declarado.
+**Impacto:** un monitor que confiara únicamente en el código de salida del script podía marcar como
+saludable una respuesta que en realidad declaraba un incidente abierto, simplemente porque el nombre
+del estado no coincidía exactamente con la cadena esperada — exactamente la propiedad de
+observabilidad independiente que este probe existe para garantizar.
+
+**FIXED:** reescritura completa de `poll_once`/nueva función `parse_security_status` en
+`audit_security_status_probe.py`, fail-closed por diseño — nunca un default permisivo seguido de una
+rama de éxito genérica:
+
+- **Contrato de 4 códigos de salida, explícito en el docstring del módulo:**
+  `0=CLEAR` (`securityState=="CLEAR"` **y** `openIncidentCount==0`, nada más);
+  `1=CRITICAL_SECURITY_INCIDENT` (`securityState=="CRITICAL_SECURITY_INCIDENT"` **y**
+  `openIncidentCount` es un entero `>=1`);
+  `2=UNREACHABLE` (fallo de transporte — DNS, connection refused, timeout — **o** cualquier estado
+  HTTP no-2xx, ya que `urllib` lanza `HTTPError`, subclase de `URLError`, para esos casos: "endpoint
+  failure", nunca interpretado como CLEAR);
+  `3=INVALID_SECURITY_STATUS_RESPONSE` (HTTP 2xx pero el cuerpo no es exactamente uno de los dos
+  payloads coherentes: estado ausente/`null`/desconocido, `openIncidentCount` ausente/`null`/
+  string/booleano/negativo, o un count incoherente con el estado declarado — `CLEAR` con count>0,
+  `CRITICAL_SECURITY_INCIDENT` con count<1 — más JSON malformado, JSON que no es un objeto, o cuerpo
+  vacío).
+- **`UNREACHABLE` y `INVALID_SECURITY_STATUS_RESPONSE` quedan explícitamente separados**, tal como
+  exigió la orden: "no se pudo alcanzar el endpoint en absoluto" es una condición operacional
+  distinta de "se alcanzó y dijo algo que este probe no reconoce como coherente" — conflacionarlas
+  ocultaría un endpoint vivo pero roto/desincronizado detrás de la misma señal que uno completamente
+  caído.
+- **Trampa de `bool` en Python evitada explícitamente**: `bool` es subclase de `int`
+  (`isinstance(True, int)` es `True`), así que `{"openIncidentCount": true}` se rechaza con un check
+  explícito `isinstance(count, bool)` ANTES del check `isinstance(count, int)` — de lo contrario
+  habría pasado silenciosamente como `count=1`.
+- **Ningún campo nuevo se volvió obligatorio más allá de lo que la orden pidió.** Los campos de
+  fingerprint (`latestIncidentDedupKey`/`latestIncidentReasonCode`/`latestIncidentDetectedAt`) se
+  siguen imprimiendo cuando están presentes, pero no se exige su presencia — el contrato documentado
+  de `/security-status` no los declara obligatorios hoy, y la orden fue explícita: "Si hoy ese campo
+  es opcional, no inventes una nueva obligación."
+
+**REVALIDATED BY CLAUDE:** nueva suite `stir-main/scripts/test_audit_security_status_probe.py`
+(stdlib `unittest`, servidor HTTP local sintético por test, sin dependencias externas) — **16/16
+tests PASS**, cubriendo exactamente la matriz de regresión exigida más dos casos adicionales:
+
+| Escenario | Exit esperado | Resultado |
+|---|---|---|
+| `CLEAR` + `openIncidentCount=0` | 0 | PASS |
+| `CRITICAL_SECURITY_INCIDENT` + count=1 | 1 | PASS |
+| `CRITICAL_SECURITY_INCIDENT` + count=2 | 1 | PASS |
+| **`UNKNOWN` + count=1 (reproducción exacta de Codex)** | **3** | **PASS** |
+| estado ausente + count=1 | 3 | PASS |
+| `CLEAR` + count=1 (incoherente) | 3 | PASS |
+| `CRITICAL_SECURITY_INCIDENT` + count=0 (incoherente) | 3 | PASS |
+| count negativo | 3 | PASS |
+| count string | 3 | PASS |
+| count booleano (`true`) | 3 | PASS |
+| count `null` | 3 | PASS |
+| JSON malformado | 3 | PASS |
+| JSON array (no objeto) | 3 | PASS |
+| cuerpo vacío | 3 | PASS |
+| connection refused | 2 | PASS |
+| HTTP 503 con cuerpo `CLEAR` bien formado | 2 (nunca CLEAR) | PASS |
+
+El caso "`UNKNOWN` + count=1" es la reproducción literal del hallazgo de Codex y es el que
+verdaderamente prueba el fix — antes de este cambio ese mismo test habría fallado con exit 0.
+
+**Reproducción P1-R3-001, repetida sin cambio de semántica:**
+`SecurityStatusCrashReproductionTest` (código Java, sin tocar en esta ronda) re-ejecutado en esta
+sesión: `2/2 PASS` — el probe commitea el incidente, halta antes del log, una instancia `Main`
+completamente nueva expone `CRITICAL_SECURITY_INCIDENT` con el fingerprint exacto vía
+`/security-status` real, persistente en polls repetidos, `/health` intacto. Sin cambios de
+comportamiento respecto a la tercera ronda.
+
+**Endpoint interno, confirmado sin cambios:** `/security-status` sigue sin publicarse como puerto
+Compose (`compose.yml` no cambió en esta ronda) y no se añadió ningún campo nuevo al payload — el
+fix vive enteramente en el lado del probe, que es exactamente lo que la orden pidió.
+
+### Totales confirmados de esta cuarta ronda (re-ejecutados en esta sesión)
+
+- `python scripts/test_audit_security_status_probe.py`: **16/16 tests, 0 fallos** (suite nueva).
+- `mvn test -Dtest=SecurityStatusCrashReproductionTest` en `audit-verifier`: **2/2 PASS** (repetición
+  exacta de P1-R3-001, sin cambios de código Java).
+- `mvn test` completo en `audit-verifier`: **41/41 tests, 0 fallos** — idéntico a la tercera ronda,
+  como se esperaba (cero cambios de código Java en esta remediación).
+- `mvn clean verify` en `stir-backend` (reactor completo): **228/228 tests, 0 fallos** — idéntico a
+  la tercera ronda.
+- `docker compose config --quiet`: **PASS**. No se reconstruyó la imagen del verifier en esta ronda
+  — el probe de `stir-main` no forma parte de ningún `Dockerfile`/imagen (confirmado por inspección:
+  ninguna referencia a `scripts/` en `compose.yml` ni en el Dockerfile del verifier), por lo que el
+  cambio no afecta ninguna imagen construida.
+- `git diff --check`: limpio.
+
 ## Worktrees y baseline
 
 | Repo | Worktree | Rama | Base | HEAD tras Fase 1 |
@@ -902,17 +1016,18 @@ prueba. Se cumple.
 
 ## Siguiente paso
 
-Cuarta y (según la orden que abrió esta ronda) potencialmente final reauditoría adversarial
-independiente de Codex sobre esta entrega remediada. Recuento de rondas: la primera cerró (con
-remediación) P1-RA-001...007; la segunda encontró y remedió P1-R2-001, P1-R2-002, la carrera de
-`ChainVerifier` y el defecto de deduplicación de alertas; la tercera **independently revalidated**
-los cuatro puntos de la segunda ronda junto con las regresiones P1-RA-001...007, y encontró un único
-bloqueante nuevo, `P1-R3-001` (entrega de alerta at-most-once/posiblemente cero), remediado en "##
-Remediación de la tercera reauditoría" arriba mediante la decisión arquitectónica explícita de
-tratar `security_incident` como la alerta de seguridad canónica y durable, separada de cualquier
-garantía sobre el log. Dictamen esperado de la cuarta reauditoría: `P1-R3-001` aceptado como
-remediado, o nuevos findings sobre el propio código de esta tercera remediación (en particular sobre
-`/security-status`, `HealthServer`, o el probe de `stir-main`). Sólo después de esa cuarta
-reauditoría corresponde decidir: anclaje externo, consumption gate, cambios preventivos adicionales,
-o inicio de Fase 2 — per `CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md`. Ningún merge/push a `main` ni
-despliegue en DEV activa hasta entonces.
+Quinta reauditoría adversarial independiente de Codex sobre esta entrega remediada — descrita por la
+propia orden que abrió esta cuarta ronda como "reauditoría final y estrecha". Recuento de rondas: la
+primera cerró (con remediación) P1-RA-001...007; la segunda encontró y remedió P1-R2-001, P1-R2-002,
+la carrera de `ChainVerifier` y el defecto de deduplicación de alertas; la tercera **independently
+revalidated** los cuatro puntos de la segunda ronda junto con las regresiones P1-RA-001...007, y
+encontró `P1-R3-001` (entrega de alerta at-most-once/posiblemente cero), remediado mediante la
+decisión arquitectónica de tratar `security_incident` como la alerta de seguridad canónica y
+durable; la cuarta **independently revalidated** `P1-R3-001` y encontró `P1-R4-001`, un defecto
+acotado exclusivamente al probe externo (`stir-main/scripts/audit_security_status_probe.py`),
+remediado en "## Remediación de la cuarta reauditoría" arriba sin tocar journal, verifier,
+`security_incident`, baseline, `ChainVerifier` ni roles/grants. Dictamen esperado de la quinta
+reauditoría: `P1-R4-001` aceptado como remediado. Sólo después de esa quinta reauditoría corresponde
+decidir: anclaje externo, consumption gate, cambios preventivos adicionales, o inicio de Fase 2 —
+per `CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md`. Ningún merge/push a `main` ni despliegue en DEV activa
+hasta entonces. Ninguna nueva feature se añadió en esta ronda más allá de lo que `P1-R4-001` exigía.

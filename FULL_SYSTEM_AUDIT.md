@@ -239,6 +239,21 @@ Los dos contenedores de restore de auditoría se detuvieron tras las pruebas; su
 
 **Estudio posterior sin fix:** [GOVERNED_STATE_AUDIT_ARCHITECTURE.md](GOVERNED_STATE_AUDIT_ARCHITECTURE.md) evalúa trigger audit protegido, verificador independiente y anclaje IDAX Ledger. Concluye que mejoran la detección, pero no prueban por sí solos la intención de actores sin firma ni eliminan la ventana antes de consumo. `AUD-012` conserva severidad/status; las [órdenes futuras para Claude Code](CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md) separan implementación y gates sin autorizarlos ahora.
 
+**Fase 1 del MVP implementada y validada en worktree aislado, no integrada:**
+[VALIDATION_GOVERNED_STATE_AUDIT_MVP.md](VALIDATION_GOVERNED_STATE_AUDIT_MVP.md) documenta una
+migración V18 (`stir_audit` schema, roles `stir_audit_owner`/`stir_auditor`, trigger
+`SECURITY DEFINER` en 40/47 tablas `stir.*` reales) y un proceso verificador Java completamente
+separado, ambos ejecutados contra PostgreSQL 17 real (no simulado) en
+`stir/.local/full-system-audit/slot-01/`. Los dos ataques directos de `AUD-012` (constitución no
+firmada, FINAL de Market Integrity forjado) producen ahora un evento DB atómico que `idax_app`/
+`idax_admin` no pueden tocar, y el verificador los clasifica `VIOLATION` de forma reproducible.
+**Esto no cierra `AUD-012`**: ningún dominio alcanza `PASS_CRYPTO` (el verificador nunca
+reimplementó verificación Ed25519/WebAuthn independiente, SPEC GAP explícito), no existe
+consumption gate (`ReferenceService` sigue leyendo estado no verificado de forma síncrona), y el
+anclaje externo es sólo una interfaz sin implementar. Ni Fase 1 ni su documentación se integraron
+en `main` de ningún repo ni se desplegaron en DEV; pendiente de revisión de Codex antes de decidir
+Fase 2.
+
 ## Cobertura pendiente
 
 Las fases activas de tenant A/B, SuperAdmin, votos, Seven Keys, WebAuthn virtual, independencia, fuentes/lineage, consent, referencias, extensión, osTRIS, concurrencia, actualización, reinicios y navegador HTTPS VM **no están aún ejecutadas**. Backup/restore en DB y volúmenes separados está parcialmente ejecutado, pero no incluye fixtures con datos de negocio ni arranque de la aplicación restaurada. `PILOT_READINESS.md` reservará el dictamen hasta tener evidencia suficiente; ningún PASS local reemplaza estos controles.

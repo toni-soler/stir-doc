@@ -10,6 +10,14 @@
 
 El [estudio de auditoría resistente a manipulación](GOVERNED_STATE_AUDIT_ARCHITECTURE.md) es una propuesta en worktree, no un control desplegado. Su hash chain/verificador/anchor no justifican por sí solos cambiar `AUD-012` ni el dictamen: una historia MI/Ordinary fabricada pero autoconsistente y el consumo antes de verificación siguen siendo riesgos abiertos.
 
+Su **Fase 1 ya está implementada y validada** en worktree aislado
+([VALIDATION_GOVERNED_STATE_AUDIT_MVP.md](VALIDATION_GOVERNED_STATE_AUDIT_MVP.md)): migración V18,
+trigger de auditoría en 40/47 tablas reales, verificador Java separado, ambos dos ataques directos
+de `AUD-012` detectados de forma reproducible contra roles PostgreSQL reales. **No cambia el
+dictamen NOT PILOT READY**: ningún dominio alcanza `PASS_CRYPTO`, no hay consumption gate, no hay
+anclaje externo implementado, y nada de esto se integró en `main` ni se desplegó en DEV. Pendiente
+de revisión de Codex.
+
 | Control | Evidencia actual | Estado |
 |---|---|---|
 | Baseline cinco repos STIR PC | HEAD/branch/status/remote registrados en `FULL_SYSTEM_AUDIT.md` | VERIFICADO en PC |

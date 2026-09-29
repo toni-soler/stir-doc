@@ -140,48 +140,132 @@ entirely and were not part of any of the five governed-state-audit reaudit round
 
 ## Part B — Isolated full-stack integration test on VM DEV
 
-**Status: NOT YET EXECUTED.** This is the second half of the requested checkpoint
-(`docker compose` isolated stack with STIR frontend/backend, IDAX Core/Shell, osTRIS, IDAX Ledger,
-PostgreSQL, object storage, and the audit verifier, plus the full integration gate: clean V1→V19
-migration, a representative V16/V17 upgrade with data, backend/frontend build+tests, health of
-every service, `/security-status`, the durable-incident+restart reproduction, tenant A/B isolation,
-SuperAdmin-without-community-authority, Seven Keys 7-of-7/6-of-7 rejection, WebAuthn replay/cross-
-tenant, Market Integrity legitimate/illegitimate, Ordinary Governance, Consent/Retention, Reference
-publication, Agreement/economic execution against osTRIS, commit retry/reconciliation, no-FX
-invariants, a full restart, and an isolated backup/restore with non-empty data and at least one real
-object).
+**Status: STARTED, BLOCKED at gate item 1 by a real HIGH finding (`INT-P1-001`), now remediated in
+a narrow follow-up branch pending its own short independent reaudit - see the next section.** VM
+DEV connection was confirmed (`ssh -p 12522 stir-admin@2.139.185.159`, user-provided). Before
+touching anything: confirmed the active `stir-dev` stack (10 containers, `stir-dev_postgres_data`/
+`stir-dev_minio_data`, `stir-dev_data`/`stir-dev_edge` networks) and an unrelated leftover
+`stir-audit-restore-20260928-*` project from an earlier Codex session - neither touched.
 
-**Why this has not started yet:** running this gate requires reaching the VM DEV host as a
-development/test machine (explicitly authorized for this purpose) to bring up an isolated Compose
-stack with a new `COMPOSE_PROJECT_NAME`, separate volumes/network/ports/synthetic secrets - never
-touching the active `stir-dev` project, its containers, `stir-dev_postgres_data`,
-`stir-dev_minio_data`, or anything served by `dev.stir.es`. This session has not established that
-connection: there is no SSH configuration for it in any of the four repos' tracked files, and no
-connection details (host/port/user/authentication method) were provided in this session beyond the
-IP:port pair (`2.139.185.159:12522`) that appears only inside Codex's own audit-evidence files
-(`.local/full-system-audit/`) as *their* read-only access record, not a credential handed to this
-session. Guessing at credentials or reusing an address found only in someone else's audit log,
-without confirming it's the intended target and that this session has legitimate access to it,
-would be exactly the kind of unverified assumption this whole five-round remediation effort was
-built to avoid making about production systems.
+Isolated workspace: fresh clone of all five repos' just-pushed `main` (verified HEADs matched
+exactly) into `/home/stir-admin/stir-audit-verify/stir/`, `stir-main`'s own `scripts/initialize.py`
+pinned vendor (IDAX Core/Shell, osTRIS, IDAX Ledger) with its own synthetic secrets, Compose project
+`stir-audit-verify` (the committed `compose.yml` has a hardcoded `name: stir-dev` - overridden
+explicitly with `-p` on every call; host ports remapped via env vars to avoid colliding with the
+active stack).
 
-**What is needed to proceed:** confirmation of how this session should reach the VM DEV host (the
-existing SSH key pair in `~/.ssh/` may be sufficient if this session is meant to use it, but that
-should be confirmed rather than assumed) and confirmation that vendor sources for IDAX Core/Shell,
-osTRIS, and IDAX Ledger are available there (the `stir-main` worktree used for the five audit rounds
-explicitly does not contain `vendor/`, per the fourth reaudit's own observation - see
-`FOURTH_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`).
+**Gate item 1 (clean V1→V19 migration) failed:**
 
-**Confirmed unaffected so far:** nothing in Part A touched any remote host. `stir-dev`'s active
-containers, volumes, and DNS-served configuration were never referenced by any command in this
-session beyond reading past audit documents that mention them historically. This will be
-re-confirmed explicitly, with live evidence, once Part B actually runs.
+```
+ERROR: function digest(bytea, unknown) does not exist
+Line: 281, V18__tamper_evident_governed_state_audit.sql
+Migration of schema "stir" to version "18" failed! Changes successfully rolled back.
+```
 
-## Resources and timing (Part A only)
+`select extname, extnamespace::regnamespace from pg_extension where extname='pgcrypto'` →
+`pgcrypto | idax_core`. `idax-core-runtime`'s own migrations install `pgcrypto` - into `idax_core` -
+before `stir`'s ever run in the real stack; `stir.flyway_schema_history` confirmed a clean rollback
+(V17 was the last recorded row, no partial V18 state). Every downstream service (`runtime-
+provision`, `audit-provision`, `stir-audit-verifier`, `shell`/`stir`/`ostris`/`ledger`) depends on
+this migration step completing and never started. **Gate items 2-19: NOT RUN**, correctly - not
+FAIL, simply unreachable. Per the "stop on HIGH" instruction, no fix was attempted in that moment;
+the isolated stack was stopped (`stop`, not `down -v` - `stir-audit-verify_postgres_data` was kept
+as evidence of the exact failure state) and this was reported for a decision on how to proceed.
 
-Local Windows dev machine, no VM DEV usage yet. Merge operations themselves are near-instantaneous
-(fast-forward, no working-tree recomputation beyond the usual checkout). Post-merge verification
-commands: `mvn compile` (root + submodule) a few seconds each; `python
-scripts/test_audit_security_status_probe.py` ~15 seconds (26 tests, several spin up and tear down a
-local HTTP server and a real subprocess). No Docker, no Testcontainers, no VM DEV resources
-consumed in Part A.
+## `INT-P1-001` — HIGH / DEPLOYMENT BLOCKER — V18 cannot install alongside idax-core-runtime's pgcrypto
+
+FOUND → FIXED → REVALIDATED BY CLAUDE (this session; pending Codex's own short independent reaudit
+before this branch is fast-forwarded into `main` - not yet merged/pushed there).
+
+**Root cause:** PostgreSQL extensions are unique per DATABASE, never per schema. V18's `CREATE
+EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA stir_audit` silently no-ops the moment `pgcrypto`
+already exists anywhere in the database - which it always does in the real stack, in `idax_core`.
+V18/V19's own hash functions declare `SET search_path = pg_catalog[, stir_audit]`, which never
+includes `idax_core`, so the bare `digest(...)` calls never resolved. This was invisible to every
+Testcontainers-based test across all five prior reaudit rounds because those always ran STIR's
+migrations against an otherwise-bare Postgres container, where V18 itself was always the *first*
+thing to ever install `pgcrypto` - the real stack's actual migration ordering (`idax_core` first)
+was never exercised until this isolated full-stack gate.
+
+**Determination that V18/V19 remain correctable in place (done BEFORE any code edit, per the
+remediation order's own required first step):** checked every known persistent database via SSH -
+- Active `stir-dev`: `select version from stir.flyway_schema_history order by installed_rank desc
+  limit 1` → **`16`**. V17/V18/V19 never applied.
+- The one existing DEV restore snapshot on the VM (`stir-audit-restore-20260928-pg`, a stopped
+  container from an earlier Codex session - started briefly, read-only, to check its own history,
+  then stopped again in the exact same state it was found in): max version → **`17`**. V18/V19
+  never applied there either. Same `pgcrypto`-in-`idax_core` situation.
+- The isolated gate's own failed volume: `stir.flyway_schema_history` stops at V17 with a clean
+  rollback - by the remediation order's own explicit clarification, this does not count as "V18
+  applied" at all.
+- No Testcontainers run (ephemeral by construction) counts either.
+
+**Conclusion: no persistent database anywhere has V18 or V19 applied with `success=true`.** Both
+remain pre-release migrations, even though already pushed to `main` - correctable directly, with
+full Git traceability, per the remediation order's own explicit authorization for exactly this case.
+
+**Fix (in `claude/integration-pgcrypto-remediation`, `stir-backend` commit `bc455fa`):** grepped
+every `pgcrypto`/`digest(` usage across the STIR schema - exactly 4 `digest(x, 'sha256')` calls (3
+in V18: `genesis_hash`, `row_digest_pg17_jsonb_text_sha256_v1`, `compute_event_hash`; 1 in V19:
+`compute_event_hash_v2`) and 1 `CREATE EXTENSION` statement, and nothing else (confirmed no
+`gen_random_bytes`/`hmac`/`encrypt`/`decrypt`/`crypt`/`gen_salt`/`pgp_*` anywhere; `gen_random_uuid()`
+used elsewhere is itself native `pg_catalog` since PG13, never pgcrypto's). SHA-256 was pgcrypto's
+*only* use in this schema. PostgreSQL has shipped `pg_catalog.sha256(bytea) returns bytea` natively
+since PG11 - no extension of any kind. Replaced all 4 `digest(x, 'sha256')` calls with `sha256(x)`;
+removed the `CREATE EXTENSION` statement entirely. Did **not** move `pgcrypto`, did **not**
+`ALTER EXTENSION ... SET SCHEMA`, did **not** grant the auditor any new access to `idax_core`, did
+**not** add `idax_core` to any `search_path`, did **not** create a `pg_catalog` wrapper. STIR's
+audit code no longer touches, depends on, or needs to know anything about where `idax_core`'s own
+extension lives - closing the class of bug, not just this one occurrence of it.
+
+**Cryptographic compatibility, verified before touching any migration file:** a throwaway
+`postgres:17-alpine` container confirmed `sha256('hello world'::bytea)` `=`
+`digest('hello world'::bytea, 'sha256')` byte-for-byte, for a text value, an empty `bytea`, and
+arbitrary binary input (`\xdeadbeef`) - all three `true`. No stored hash's meaning changes, no
+`event_format_version` changes, no domain separator changes, no canonicalization/serialization
+changes. All 41 pre-existing `audit-verifier` tests (hash vectors via `recomputeEventHash`, tamper
+detection, the P1-R3-001 crash-and-restart reproduction, reconciliation) pass unchanged against the
+fix - if a single expected hash had changed, any of these would have failed.
+
+**New regression test (the one this incident was missing) - reproduces the real stack's exact
+migration ordering, not just "runs against a bare Postgres":**
+`migratesCleanlyWhenPgcryptoAlreadyInstalledInAnotherSchemaFirst` creates a schema named `idax_core`
+with `pgcrypto` installed into it **before** running STIR's own V1→V19 - exactly the real
+precondition - then confirms not just a clean migration but a real, working end-to-end hash-chain
+event (a governed mutation through `idax_app`, verified present in `stir_audit.mutation_event`) in
+that exact ordering. `migratesCleanlyWithNoPgcryptoExtensionAnywhere` is the inverse control -
+STIR's own migrations must never install `pgcrypto` themselves (that would only mask the dependency,
+not remove it). `audit-verifier`: **41 → 43 tests, all passing.** `stir-backend mvn verify`:
+**228/228, unchanged.**
+
+**Idax-core-first reproduction on the real VM (not just Testcontainers):** copied the two fixed
+migration files onto the existing isolated clone at `/home/stir-admin/stir-audit-verify/stir/
+stir-backend/`, brought up a **fresh**, differently-named Compose project (`stir-audit-verify-fix2`
+- a clean volume/network, per the remediation order's instruction to never reuse the original
+failure's evidence volume) with just `postgres`+`core-migrations`+`module-migrations` - the exact
+three containers involved in the original failure. Result: `module-migrations` exited `0`;
+`stir.flyway_schema_history` shows **V18 and V19 both `success=true`**; `pgcrypto` remains exactly
+in `idax_core`, never duplicated or moved; `stir_audit` schema exists correctly. Stopped this
+verification stack afterward (`stop`, kept the volume). Re-confirmed `stir-dev` completely
+unaffected: same 10 containers, same volumes/networks, `stir.flyway_schema_history` still at `16`.
+
+**Per the remediation order, stopping here - gate items 2-19 were NOT re-attempted in this pass.**
+This fix is staged on `claude/integration-pgcrypto-remediation` in `stir-backend` (`bc455fa`) and
+documented here in `stir-doc` on the matching branch - **neither pushed to `main` yet**, pending a
+short independent reaudit of this narrow fix by Codex. `AUD-012` stays HIGH/open; `NOT PILOT READY`
+stays in effect; no Phase 2, external anchor, or consumption gate.
+
+**Once accepted:** fast-forward both branches into `main`, push, bring up a brand-new isolated stack
+from that `main`, and resume the full integration gate from item 1 through item 19.
+
+## Resources and timing
+
+**Part A:** near-instantaneous (fast-forward merges); a few seconds each for post-merge `mvn
+compile` and the probe's 26-test suite (~15s). No Docker/VM DEV resources consumed.
+
+**Part B (this pass):** VM DEV SSH + Docker throughout. Isolated clone + `initialize.py` vendor pin:
+a few minutes. First (failing) migration attempt: under a minute to fail and roll back cleanly.
+`INT-P1-001` root-cause investigation (checking `stir-dev`, the restore snapshot, `pg_extension`
+locations): a few minutes of read-only SSH queries. Local fix + full local verification (`sha256`
+byte-equivalence check, 43 audit-verifier tests, 228 backend tests): a few minutes total. Re-running
+the fixed migration on the VM (fresh Compose project, 3 containers): under two minutes end to end.

@@ -239,7 +239,7 @@ Los dos contenedores de restore de auditoría se detuvieron tras las pruebas; su
 
 **Estudio posterior sin fix:** [GOVERNED_STATE_AUDIT_ARCHITECTURE.md](GOVERNED_STATE_AUDIT_ARCHITECTURE.md) evalúa trigger audit protegido, verificador independiente y anclaje IDAX Ledger. Concluye que mejoran la detección, pero no prueban por sí solos la intención de actores sin firma ni eliminan la ventana antes de consumo. `AUD-012` conserva severidad/status; las [órdenes futuras para Claude Code](CLAUDE_GOVERNED_STATE_AUDIT_ORDERS.md) separan implementación y gates sin autorizarlos ahora.
 
-**Fase 1 del MVP implementada y validada en worktree aislado, no integrada:**
+**Fase 1 del MVP implementada, validada, y ahora integrada en `main` (no desplegada en DEV):**
 [VALIDATION_GOVERNED_STATE_AUDIT_MVP.md](VALIDATION_GOVERNED_STATE_AUDIT_MVP.md) documenta una
 migración V18 (`stir_audit` schema, roles `stir_audit_owner`/`stir_auditor`, trigger
 `SECURITY DEFINER` en 40/47 tablas `stir.*` reales) y un proceso verificador Java completamente
@@ -250,9 +250,15 @@ firmada, FINAL de Market Integrity forjado) producen ahora un evento DB atómico
 **Esto no cierra `AUD-012`**: ningún dominio alcanza `PASS_CRYPTO` (el verificador nunca
 reimplementó verificación Ed25519/WebAuthn independiente, SPEC GAP explícito), no existe
 consumption gate (`ReferenceService` sigue leyendo estado no verificado de forma síncrona), y el
-anclaje externo es sólo una interfaz sin implementar. Ni Fase 1 ni su documentación se integraron
-en `main` de ningún repo ni se desplegaron en DEV; pendiente de revisión de Codex antes de decidir
-Fase 2.
+anclaje externo es sólo una interfaz sin implementar. Tras cinco rondas de reauditoría adversarial
+independiente de Codex (`FASE 1 ACEPTABLE`, `PHASE 1 INTERNAL IMPLEMENTATION GATE: ACCEPTED`,
+2026-09-30 - ver `VALIDATION_GOVERNED_STATE_AUDIT_MVP.md`), Fase 1 y su documentación quedaron
+integradas en `main` de los cuatro repos (`stir-backend`, `stir-main`, `stir-doc`,
+`stir-workspace`), pero **no se desplegaron en el stack DEV activo (`stir-dev`)** - el gate de
+integración de sistema completo sobre la VM DEV, en un stack aislado, queda pendiente y se
+documentará en `INTEGRATION_GOVERNED_STATE_AUDIT_PHASE1.md` cuando se ejecute. Esta integración es
+exclusivamente un gate de calidad de implementación interno; no autoriza por sí sola decidir
+Fase 2, anclaje externo ni consumption gate.
 
 ## Cobertura pendiente
 

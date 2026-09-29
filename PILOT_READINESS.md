@@ -8,15 +8,25 @@
 
 **Dictamen operativo actual: NOT PILOT READY.** `AUD-012` mantiene abierto el límite de autoridad según la formulación estricta del usuario; el despliegue DEV activo aún conserva V16 y los HIGH originales. Este dictamen se revisará sólo tras resolver el límite de `idax_app`, actualizar DEV y completar los ensayos de aislamiento, navegador y recoverability pendientes.
 
-El [estudio de auditoría resistente a manipulación](GOVERNED_STATE_AUDIT_ARCHITECTURE.md) es una propuesta en worktree, no un control desplegado. Su hash chain/verificador/anchor no justifican por sí solos cambiar `AUD-012` ni el dictamen: una historia MI/Ordinary fabricada pero autoconsistente y el consumo antes de verificación siguen siendo riesgos abiertos.
+El [estudio de auditoría resistente a manipulación](GOVERNED_STATE_AUDIT_ARCHITECTURE.md) está
+integrado en `main` (2026-09-30, tras `PHASE 1 INTERNAL IMPLEMENTATION GATE: ACCEPTED` - ver
+`VALIDATION_GOVERNED_STATE_AUDIT_MVP.md`), pero sigue sin ser un control desplegado en ningún
+entorno vivo (DEV/PROD). Su hash chain/verificador/anchor no justifican por sí solos cambiar
+`AUD-012` ni el dictamen: una historia MI/Ordinary fabricada pero autoconsistente y el consumo antes
+de verificación siguen siendo riesgos abiertos.
 
-Su **Fase 1 ya está implementada y validada** en worktree aislado
-([VALIDATION_GOVERNED_STATE_AUDIT_MVP.md](VALIDATION_GOVERNED_STATE_AUDIT_MVP.md)): migración V18,
-trigger de auditoría en 40/47 tablas reales, verificador Java separado, ambos dos ataques directos
-de `AUD-012` detectados de forma reproducible contra roles PostgreSQL reales. **No cambia el
-dictamen NOT PILOT READY**: ningún dominio alcanza `PASS_CRYPTO`, no hay consumption gate, no hay
-anclaje externo implementado, y nada de esto se integró en `main` ni se desplegó en DEV. Pendiente
-de revisión de Codex.
+Su **Fase 1 ya está implementada, validada y ahora integrada en `main`**
+([VALIDATION_GOVERNED_STATE_AUDIT_MVP.md](VALIDATION_GOVERNED_STATE_AUDIT_MVP.md)): migración V18/
+V19, trigger de auditoría en 40/47 tablas reales, verificador Java separado con `/security-status`
+(alerta durable canónica, DB-backed), ambos dos ataques directos de `AUD-012` detectados de forma
+reproducible contra roles PostgreSQL reales. **No cambia el dictamen NOT PILOT READY**: ningún
+dominio alcanza `PASS_CRYPTO`, no hay consumption gate, no hay anclaje externo implementado, y
+aunque los commits ya están integrados y pusheados a `main` en los cuatro repos, **no se ha
+desplegado en el stack DEV activo (`stir-dev`)**. Codex aceptó la Fase 1 tras cinco rondas de
+reauditoría independiente (`FASE 1 ACEPTABLE`, ver los cinco `*_REVALIDATION_GOVERNED_STATE_AUDIT_
+PHASE1.md`); la integración completa del sistema (stack aislado con IDAX Core/Shell, osTRIS, IDAX
+Ledger) sobre la VM DEV está pendiente y se documentará por separado en
+`INTEGRATION_GOVERNED_STATE_AUDIT_PHASE1.md` cuando se ejecute.
 
 | Control | Evidencia actual | Estado |
 |---|---|---|

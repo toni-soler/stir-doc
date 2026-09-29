@@ -1,7 +1,32 @@
 # Tamper-Evident Governed State Audit MVP — Fase 1: validación y checkpoint
 
-Estado: **Fase 1 remediada por QUINTA vez, tras la quinta reauditoría adversarial independiente de
-Codex (`FIFTH_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, dictamen "FASE 1 REQUIERE NUEVA
+## `PHASE 1 INTERNAL IMPLEMENTATION GATE: ACCEPTED` (2026-09-30)
+
+Tras cinco rondas de reauditoría adversarial independiente de Codex (P1-RA-001...007 → P1-R2-001/
+P1-R2-002/carrera de `ChainVerifier` → P1-R3-001 → P1-R4-001 → P1-R5-001, cada una
+FOUND → FIXED → INDEPENDENTLY REVALIDATED, evidencia PRE-FIX conservada sin alterar en cada
+`*_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`), el dictamen final e independiente de Codex fue
+**`FASE 1 ACEPTABLE`**. Los commits de esta MVP quedaron integrados (fast-forward, sin reescritura)
+en `main` de `stir-backend`, `stir-main`, `stir-doc` y `stir-workspace`, y esos `main` fueron
+pusheados. **Esto es exclusivamente un gate interno de calidad de implementación** — nunca una
+afirmación de que `AUD-012` está cerrado ni de que el sistema es apto para piloto:
+
+- `AUD-012` permanece **HIGH, abierto** — sin cambio de severidad.
+- El sistema permanece **NOT PILOT READY**.
+- No existe external anchor ni consumption gate; Fase 2 no ha comenzado.
+- `PASS_AUTHORIZED` sigue sin existir como valor; `PASS_CRYPTO` sigue sin implementarse en Fase 1.
+
+El resto de este documento (estado histórico "Fase 1 remediada por QUINTA vez... no se ha hecho
+merge ni push a main" más abajo) describe el checkpoint tal como se entregó ANTES de esta
+aceptación e integración final — se conserva sin reescribir, como el resto de las secciones
+marcadas explícitamente como desactualizadas por cada ronda anterior. La integración/push en sí se
+documenta en `INTEGRATION_GOVERNED_STATE_AUDIT_PHASE1.md`.
+
+---
+
+Estado (histórico, previo a la integración - ver el marcador de aceptación arriba): **Fase 1
+remediada por QUINTA vez, tras la quinta reauditoría adversarial independiente de Codex
+(`FIFTH_REVALIDATION_GOVERNED_STATE_AUDIT_PHASE1.md`, dictamen "FASE 1 REQUIERE NUEVA
 REMEDIATION"), reentregada para una SEXTA reauditoría — la quinta ronda confirmó `P1-R4-001` como
 **FOUND → FIXED → INDEPENDENTLY REVALIDATED** y re-confirmó `P1-R3-001` sin regresión; el único
 bloqueante nuevo fue `P1-R5-001`, una micro-remediación acotada exclusivamente al mismo probe

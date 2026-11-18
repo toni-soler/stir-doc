@@ -1,6 +1,6 @@
 # Términos estructurados y necesidades
 
-Estado: **rama `claude/structured-terms-and-needs-mvp`, sin merge** (2026-11-14).
+Estado: **fusionado en `main`** (2026-11-17).
 
 Hasta ahora una publicación tenía título, descripción, categoría y lugar. Una propuesta tenía un mensaje, una cantidad, un importe y un texto libre de condiciones. Las personas que comparan y negocian necesitan distinguir más cosas:
 
@@ -85,6 +85,6 @@ Se numera V22 porque V20 y V21 pertenecen a la línea de vigencia de estado gobe
 ## Lo que no hace
 
 - No convierte ninguna de estas propiedades en un ajuste de precio ni en un criterio de elegibilidad de evidencia. Usar `itemCondition` o `fulfilmentMode` para estratificar referencias sería otra decisión comunitaria, con su propia gobernanza.
-- No registra el cumplimiento: entregado, parcial o incumplido. Eso corresponde al incremento siguiente.
+- No registra el cumplimiento: entregado, parcial o incumplido. Eso lo hace `AGREEMENT_FULFILMENT.md`.
 - No permite modificar un Agreement ya aceptado.
 - `availability` no se deriva automáticamente de las negociaciones. La declara quien publica porque sólo esa persona sabe si sigue escuchando propuestas.

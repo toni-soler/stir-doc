@@ -1,6 +1,6 @@
 # Cumplimiento de acuerdos: obligaciones, confirmaciones, enmiendas y resultados
 
-Estado: **diseño**, rama `claude/agreement-fulfilment-mvp` (2026-11-17). Todavía no hay código.
+Estado: **implementado** en las ramas `claude/agreement-fulfilment-mvp` de stir-backend, stir-frontend, stir-main y stir-doc (2026-11-18). La validación está en `VALIDATION_AGREEMENT_FULFILMENT.md`.
 
 Un Agreement de STIR dice qué se acordó, pero no si se cumplió. Hoy su único estado posterior es la fase económica:
 
@@ -37,7 +37,7 @@ Cada obligación guarda `fulfilBy` y `fulfilmentMode` del snapshot, o de la últ
 | Estado | Significado |
 |---|---|
 | `PENDING` | Nadie ha declarado nada todavía. |
-| `DECLARED` | El obligado dice que la cumplió. Falta lo que diga el beneficiario. |
+| `DECLARED` | El obligado ha declarado algo (que la cumplió, en parte o que no). Falta lo que diga el beneficiario. |
 | `PARTIAL` | El beneficiario confirma una parte. Lo que falta se describe en texto. |
 | `DONE` | El beneficiario confirma la conformidad. |
 | `IN_DISAGREEMENT` | Las declaraciones de las partes se contradicen. |
@@ -129,30 +129,49 @@ Todas las rutas van bajo `/api/stir/tenants/{tenantId}/agreements/{id}`:
 - `GET /amendments`.
 - `GET /trade/attempts`.
 
+Y bajo `/api/stir/tenants/{tenantId}/participants`:
+
+- `GET /{userId}/fulfilment-history`.
+- `PUT /me/fulfilment-history-sharing` con `{ "share": true | false }`. Es una ruta propia y no un campo de `PUT /me`, para que un cliente que no la conoce no la desactive al editar su perfil. `GET /me` devuelve `shareFulfilmentHistory`.
+
+La otra parte recibe una notificación con cada declaración (`OBLIGATION_UPDATED`) y con cada enmienda propuesta, aceptada o rechazada (`AMENDMENT_PROPOSED`, `AMENDMENT_ACCEPTED`, `AMENDMENT_REJECTED`).
+
 Lectura con `stir.agreements.read` y escritura con un permiso nuevo, `stir.agreements.fulfil`, que se añade a `config/permission-catalog.json`. Los roles de participante los crea el administrador en Shell con una lista de permisos. Por eso el permiso tiene que añadirse a esa lista en los fixtures E2E, en el smoke y en la guía de alta de comunidades, igual que `stir.economic.manage`. `GET /api/stir/instance` añade `agreementFulfilmentVersion: 1`, para que una distribución sepa si puede usarlo.
 
 ## Base de datos
 
 `V23__agreement_fulfilment.sql` crea:
 
-- `stir.agreement_obligation`;
-- `stir.agreement_obligation_event` (sólo se puede insertar);
-- `stir.agreement_amendment` (sólo se puede insertar);
-- `stir.economic_execution_attempt` (sólo se puede insertar).
+- `stir.agreement_obligation`. Un disparador congela su identidad y sus términos: sólo pueden cambiar el estado derivado y la enmienda que la sustituyó, y una obligación sustituida no vuelve atrás. No se borra nunca.
+- `stir.agreement_obligation_event`: sólo se puede insertar.
+- `stir.agreement_amendment`. Una propuesta se decide una sola vez; después ninguna fila cambia. Dos índices únicos parciales hacen que sólo una enmienda aceptada pueda construirse sobre cada base y que su secuencia no se repita: si dos aceptaciones compiten, la base de datos decide y la perdedora recibe 409.
+- `stir.economic_execution_attempt`: sólo se puede insertar.
 
-Además añade `participant_profile.share_fulfilment_history`. Todas las tablas tienen RLS por tenant y el disparador de auditoría de `stir_audit`. Las tablas de sólo inserción tienen además un disparador que impide `UPDATE` y `DELETE`, como `reference_observation`.
+Además añade `participant_profile.share_fulfilment_history` y los cuatro tipos de notificación nuevos.
+
+Todas las tablas tienen RLS por tenant y se registran en `stir_audit.coverage_registry` como `COVERED` en el dominio `AGREEMENT_ECONOMIC`, con el disparador de auditoría y la lectura del auditor como las demás. `idax_app` sólo recibe `INSERT` en las tablas de historia; `idax_admin` sólo lectura. El disparador de sólo inserción actúa también contra el propietario de la tabla, no depende de los permisos.
+
+Las obligaciones se derivan la primera vez que alguien las lee, también para los Agreements anteriores a V23. `NegotiationService.accept` no cambia. Una restricción única parcial por `(agreement_id, kind)` hace que dos lectores simultáneos no dupliquen nada.
 
 ## Pruebas
 
-- **Backend:** tests de PostgreSQL para la derivación de obligaciones, la función de estado, la regla de doble coincidencia de `FAILED`, el encadenamiento y el 409 de enmiendas, la clasificación de cada código, la RLS entre tenants, el 404 a un superusuario que no es parte y que no se pueda modificar ningún evento.
+- **Backend:** `FulfilmentRulesTest` (función de estado y clasificación de cada código) y `FulfilmentPostgresTest`, contra PostgreSQL real como `idax_app` bajo RLS. Cubren:
+  - la derivación de obligaciones y sus partes, en `OFFER` y en `WANTED`;
+  - la regla de doble coincidencia de `FAILED`;
+  - el encadenamiento de enmiendas, el 409 sobre una base vieja y las obligaciones que no se pueden sustituir;
+  - la RLS entre tenants y el 404 a un superusuario que no es parte;
+  - que ningún evento, intento, enmienda decidida u obligación sustituida se pueda modificar.
 - **E2E HTTP** (`agreement_fulfilment_e2e.py`, en un stack aislado):
   - entrega parcial;
   - desacuerdo;
   - fallo con las dos partes de acuerdo;
   - enmienda que cambia una tarea y la fecha;
-  - intento de ejecución por encima del suelo, persistido como `EXPOSURE_REFUSAL` y después `COMMITTED` tras subir el saldo;
+  - un intento sin firmas (`AUTHORISATION_INCOMPLETE`) seguido de `COMMITTED`;
+  - un intento por encima del suelo, persistido como `EXPOSURE_REFUSAL`, con la obligación económica todavía `PENDING`;
+  - la capacidad disponible;
   - historia `NOT_SHARED` frente a `NO_HISTORY_YET`.
-- **UI de STIR:** un tablero de obligaciones en el detalle del Agreement, en 12 idiomas.
+- **Navegador** (`agreement_fulfilment_browser.py`): el tablero en el detalle del Agreement, una declaración parcial y una enmienda hechas desde la UI, la capacidad en la página económica y la historia en el perfil, en castellano y sin errores de JavaScript.
+- **UI de STIR:** 12 idiomas, validados con `npm run i18n:validate`.
 
 ## Lo que no hace
 

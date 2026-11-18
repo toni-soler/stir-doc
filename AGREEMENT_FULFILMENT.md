@@ -44,7 +44,7 @@ Cada obligación guarda `fulfilBy` y `fulfilmentMode` del snapshot, o de la últ
 | `FAILED` | Las dos partes coinciden en que no se cumplió. |
 | `SUPERSEDED` | Una enmienda aceptada la sustituyó. |
 
-`FAILED` exige que las dos partes coincidan. Si una sola dice "no recibido", eso es una declaración, no una conclusión. El estado pasa a `IN_DISAGREEMENT`, y ese desacuerdo se resolverá en 0.4 con el caso de revisión. STIR nunca decide quién tiene razón y no sanciona.
+`FAILED` exige que las dos partes coincidan. Si una sola dice "no recibido", eso es una declaración, no una conclusión. El estado pasa a `IN_DISAGREEMENT`, y ese desacuerdo se revisa con un caso (`AGREEMENT_CASES.md`). Las declaraciones nunca deciden quién tiene razón, y una conclusión del caso es un objeto aparte que no cambia este estado.
 
 La obligación `ECONOMIC_EXCHANGE` no se confirma a mano. Su estado se deriva del `Trade`:
 
@@ -81,7 +81,7 @@ Una enmienda es un acto aceptado. Indica qué sustituye y qué conserva, y nunca
   - `validUntil`.
 - La otra parte acepta o rechaza. Si `baseDigest` ya no es el último, aceptar responde 409: alguien enmendó antes.
 - Al aceptar se congela un `AgreementAmendment` con formato `STIR-AGREEMENT-AMENDMENT-JCS-1`. Su digest encadena el anterior. Las obligaciones sustituidas pasan a `SUPERSEDED`, y las demás se conservan sin cambios.
-- No se puede sustituir una obligación en estado `DONE` ni `FAILED`, ni la obligación `ECONOMIC_EXCHANGE`. Cambiar importe, unidad, partes o compromiso externo (`externalContractDigest`) queda fuera. En osTRIS eso es una corrección con base final, y corresponde a 0.4.
+- No se puede sustituir una obligación en estado `DONE` ni `FAILED`, ni la obligación `ECONOMIC_EXCHANGE`. Cambiar importe, unidad, partes o compromiso externo (`externalContractDigest`) queda fuera. En osTRIS eso es una corrección con base final: la reversión adjudicada de `AGREEMENT_CASES.md`.
 
 ## Resultados de ejecución
 
@@ -175,7 +175,7 @@ Las obligaciones se derivan la primera vez que alguien las lee, también para lo
 
 ## Lo que no hace
 
-- No resuelve desacuerdos, no repara efectos y no sanciona. Eso es 0.4.
+- No resuelve desacuerdos ni repara efectos: eso lo hacen los casos (`AGREEMENT_CASES.md`).
 - No enmienda el tramo económico ni el compromiso externo.
 - No gobierna el suelo de crédito.
 - No calcula reputación.
